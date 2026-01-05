@@ -23,14 +23,9 @@ public class ResearchPanel extends JPanel {
         pnlLeft.setBorder(BorderFactory.createTitledBorder("1. Chọn Giảng Viên"));
 
         tblStaff = new JTable();
-        // Tận dụng lại hàm lấy nhân viên từ NhanSuDAO
-        tblStaff.setModel(NhanSuDAO.getNhanVienModel());
-        // Ẩn bớt cột không cần
-        for(int i=2; i<tblStaff.getColumnCount(); i++) {
-            tblStaff.getColumnModel().getColumn(i).setMinWidth(0);
-            tblStaff.getColumnModel().getColumn(i).setMaxWidth(0);
-        }
-        
+        // Gọi hàm refresh ngay khi khởi tạo
+        refreshData(); 
+
         tblStaff.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 int r = tblStaff.getSelectedRow();
@@ -48,20 +43,17 @@ public class ResearchPanel extends JPanel {
         JPanel pnlRight = new JPanel(new BorderLayout(0, 10));
         pnlRight.setBorder(BorderFactory.createTitledBorder("2. Danh Sách Công Trình / Bài Báo"));
 
-        // Header Panel bên phải
         JPanel pnlRightTop = new JPanel(new BorderLayout());
         lblCurrentStaff = new JLabel("Vui lòng chọn giảng viên bên trái...");
         lblCurrentStaff.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblCurrentStaff.setForeground(new Color(41, 128, 185));
         
         JButton btnAdd = new JButton("➕ Thêm Đề Tài Mới");
-        btnAdd.setBackground(new Color(46, 204, 113));
-        btnAdd.setForeground(Color.WHITE);
+        btnAdd.setBackground(new Color(46, 204, 113)); btnAdd.setForeground(Color.WHITE);
         btnAdd.addActionListener(e -> showAddDialog());
         
         JButton btnDel = new JButton("❌ Xóa");
-        btnDel.setBackground(new Color(231, 76, 60));
-        btnDel.setForeground(Color.WHITE);
+        btnDel.setBackground(new Color(231, 76, 60)); btnDel.setForeground(Color.WHITE);
         btnDel.addActionListener(e -> deleteResearch());
 
         JPanel pnlBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -70,25 +62,36 @@ public class ResearchPanel extends JPanel {
         pnlRightTop.add(lblCurrentStaff, BorderLayout.WEST);
         pnlRightTop.add(pnlBtns, BorderLayout.EAST);
 
-        // Bảng NCKH
         tblResearch = new JTable();
         tblResearch.setRowHeight(25);
         
         pnlRight.add(pnlRightTop, BorderLayout.NORTH);
         pnlRight.add(new JScrollPane(tblResearch), BorderLayout.CENTER);
 
-        // --- MAIN LAYOUT ---
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, pnlLeft, pnlRight);
         split.setDividerLocation(300);
         add(split, BorderLayout.CENTER);
     }
 
+    // --- HÀM QUAN TRỌNG: Làm mới danh sách nhân viên ---
+    public void refreshData() {
+        tblStaff.setModel(NhanSuDAO.getNhanVienModel());
+        // Ẩn cột không cần thiết
+        if (tblStaff.getColumnCount() > 2) {
+            for(int i=2; i<tblStaff.getColumnCount(); i++) {
+                tblStaff.getColumnModel().getColumn(i).setMinWidth(0);
+                tblStaff.getColumnModel().getColumn(i).setMaxWidth(0);
+            }
+        }
+    }
+
     private void loadResearchData() {
         if (selectedMaNV != null) {
             tblResearch.setModel(NghienCuuDAO.getListNCKH(selectedMaNV));
-            // Ẩn cột ID
-            tblResearch.getColumnModel().getColumn(0).setMinWidth(0);
-            tblResearch.getColumnModel().getColumn(0).setMaxWidth(0);
+            if(tblResearch.getColumnCount() > 0) {
+                tblResearch.getColumnModel().getColumn(0).setMinWidth(0);
+                tblResearch.getColumnModel().getColumn(0).setMaxWidth(0);
+            }
         }
     }
 
@@ -112,7 +115,6 @@ public class ResearchPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "Chưa chọn giảng viên!");
             return;
         }
-
         JDialog d = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Thêm NCKH", true);
         d.setSize(400, 350);
         d.setLocationRelativeTo(this);

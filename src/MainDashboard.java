@@ -7,8 +7,10 @@ public class MainDashboard extends JFrame {
     private JPanel pnlCenterContent; 
     private CardLayout cardLayout;
     
-    // Khai báo Panel là biến lớp để có thể gọi phương thức refresh
+    // --- KHAI BÁO BIẾN LỚP (Global Variables) ---
     private SchedulePanel pnlSchedule; 
+    private ResearchPanel pnlResearch; // Phải khai báo ở đây để dùng trong nút bấm
+    private CVPanel pnlCV;             // Phải khai báo ở đây để dùng trong nút bấm
 
     public MainDashboard() {
         setTitle("HỆ THỐNG QUẢN LÝ ĐÀO TẠO ĐẠI HỌC");
@@ -28,12 +30,10 @@ public class MainDashboard extends JFrame {
         lblTitle.setFont(new Font("Arial", Font.BOLD, 20));
         
         JButton btnLogout = new JButton("Đăng xuất");
-        btnLogout.setBackground(new Color(231, 76, 60)); 
-        btnLogout.setForeground(Color.WHITE);
+        btnLogout.setBackground(new Color(231, 76, 60)); btnLogout.setForeground(Color.WHITE);
         btnLogout.setFocusPainted(false);
         btnLogout.addActionListener(e -> {
             if(JOptionPane.showConfirmDialog(this, "Đăng xuất?", "Xác nhận", JOptionPane.YES_NO_OPTION)==JOptionPane.YES_OPTION){
-                // new LoginForm().setVisible(true); // Mở lại form login nếu có
                 this.dispose(); 
             }
         });
@@ -49,34 +49,34 @@ public class MainDashboard extends JFrame {
         pnlSidebar.setPreferredSize(new Dimension(220, 0));
         pnlSidebar.setBorder(new EmptyBorder(20, 10, 0, 10));
         
-        // KHAI BÁO CÁC NÚT
         JButton btnHome = new JButton("🏠 Trang chủ");
         JButton btnEmp = new JButton("👥 Quản lý Nhân sự");
         JButton btnFaculty = new JButton("📚 Khoa & Môn học");
-        
-        // --- NÚT MỚI: NGHIÊN CỨU KHOA HỌC ---
         JButton btnResearch = new JButton("🔬 Nghiên cứu KH");
-        
+        JButton btnCV = new JButton("📄 Hồ sơ Khoa học"); 
         JButton btnSchedule = new JButton("📅 Xếp Thời Khóa Biểu");
         JButton btnSalary = new JButton("💰 Tính Lương"); 
         
-        // STYLE
-        styleButton(btnHome); 
-        styleButton(btnEmp); 
-        styleButton(btnFaculty); 
-        styleButton(btnResearch); // Style cho nút mới
-        styleButton(btnSchedule);
-        styleButton(btnSalary);
+        styleButton(btnHome); styleButton(btnEmp); styleButton(btnFaculty); 
+        styleButton(btnResearch); styleButton(btnCV); 
+        styleButton(btnSchedule); styleButton(btnSalary);
 
-        // SỰ KIỆN CHUYỂN TAB
+        // SỰ KIỆN CHUYỂN TAB (Có gọi hàm Refresh)
         btnHome.addActionListener(e -> cardLayout.show(pnlCenterContent, "HOME"));
         btnEmp.addActionListener(e -> cardLayout.show(pnlCenterContent, "EMP"));
         btnFaculty.addActionListener(e -> cardLayout.show(pnlCenterContent, "FACULTY"));
         
-        // Sự kiện cho nút Nghiên cứu KH
-        btnResearch.addActionListener(e -> cardLayout.show(pnlCenterContent, "RESEARCH"));
+        // --- SỬA Ở ĐÂY: Gọi refreshData() ---
+        btnResearch.addActionListener(e -> {
+            if (pnlResearch != null) pnlResearch.refreshData(); // Refresh danh sách nhân viên
+            cardLayout.show(pnlCenterContent, "RESEARCH");
+        });
         
-        // Cập nhật danh sách nhân viên khi bấm vào tab Xếp lịch
+        btnCV.addActionListener(e -> {
+            if (pnlCV != null) pnlCV.refreshData(); // Refresh danh sách nhân viên
+            cardLayout.show(pnlCenterContent, "CV");
+        });
+
         btnSchedule.addActionListener(e -> {
             if(pnlSchedule != null) pnlSchedule.refreshStaffTable(); 
             cardLayout.show(pnlCenterContent, "SCHEDULE");
@@ -84,17 +84,13 @@ public class MainDashboard extends JFrame {
         
         btnSalary.addActionListener(e -> cardLayout.show(pnlCenterContent, "SALARY"));
 
-        // ADD VÀO THANH SIDEBAR
         pnlSidebar.add(btnHome); pnlSidebar.add(Box.createVerticalStrut(10)); 
         pnlSidebar.add(btnEmp); pnlSidebar.add(Box.createVerticalStrut(10));
         pnlSidebar.add(btnFaculty); pnlSidebar.add(Box.createVerticalStrut(10));
-        
-        // Add nút Nghiên cứu vào sidebar
         pnlSidebar.add(btnResearch); pnlSidebar.add(Box.createVerticalStrut(10));
-        
+        pnlSidebar.add(btnCV); pnlSidebar.add(Box.createVerticalStrut(10));
         pnlSidebar.add(btnSchedule); pnlSidebar.add(Box.createVerticalStrut(10));
         pnlSidebar.add(btnSalary); 
-        
         pnlSidebar.add(Box.createVerticalGlue()); 
         add(pnlSidebar, BorderLayout.WEST);
 
@@ -103,22 +99,22 @@ public class MainDashboard extends JFrame {
         pnlCenterContent = new JPanel(cardLayout);
         pnlCenterContent.setBackground(Color.WHITE);
         
-        // KHỞI TẠO CÁC PANEL
         DashboardPanel pnlDashboard = new DashboardPanel(); 
         EmployeePanel pnlEmployee = new EmployeePanel(this); 
         FacultyPanel pnlFaculty = new FacultyPanel();
         
-        // --- PANEL MỚI: NGHIÊN CỨU ---
-        ResearchPanel pnlResearch = new ResearchPanel();
-        
+        // KHỞI TẠO BIẾN LỚP (Không có chữ ResearchPanel/CVPanel ở đầu)
+        pnlResearch = new ResearchPanel();
+        pnlCV = new CVPanel();
         pnlSchedule = new SchedulePanel(); 
+        
         SalaryPanel pnlSalary = new SalaryPanel();
 
-        // ADD VÀO CARD LAYOUT
         pnlCenterContent.add(pnlDashboard, "HOME");
         pnlCenterContent.add(pnlEmployee, "EMP");
         pnlCenterContent.add(pnlFaculty, "FACULTY");
-        pnlCenterContent.add(pnlResearch, "RESEARCH"); // Add vào CardLayout
+        pnlCenterContent.add(pnlResearch, "RESEARCH");
+        pnlCenterContent.add(pnlCV, "CV");
         pnlCenterContent.add(pnlSchedule, "SCHEDULE");
         pnlCenterContent.add(pnlSalary, "SALARY"); 
         
