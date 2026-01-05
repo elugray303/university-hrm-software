@@ -173,7 +173,7 @@ public class SalaryPanel extends JPanel {
             btnLuuKQ.setEnabled(true);
         });
         
-        // --- CẬP NHẬT: Xử lý nút LƯU KẾT QUẢ ---
+        // Xử lý nút LƯU KẾT QUẢ
         btnLuuKQ.addActionListener(e -> {
             String maNV = txtMa.getText();
             if(maNV.isEmpty()) return;
@@ -181,14 +181,12 @@ public class SalaryPanel extends JPanel {
             int thang = (int) cboThang.getSelectedItem();
             int nam = getNam();
             
-            // Biến lưu giá trị từ ô nhập
             int tongTiet = 0;
             double valLuongCB = 0;
             double valHeSo = 1;
             double valPhuCap = 0;
             
             try { 
-                // Lấy dữ liệu từ ô nhập (đã xử lý dấu phẩy)
                 tongTiet = Integer.parseInt(txtSoTiet.getText()); 
                 valLuongCB = Double.parseDouble(txtLuongCB.getText().replace(",", "").replace(".", ""));
                 valHeSo = Double.parseDouble(txtHeSo.getText().replace(",", "").replace(".", ""));
@@ -198,10 +196,9 @@ public class SalaryPanel extends JPanel {
                 return;
             }
             
-            // Gọi hàm DAO mới với đầy đủ tham số
             boolean result = LuongDAO.saveSingleSalary(
                 maNV, thang, nam, 
-                valLuongCB, valHeSo, valPhuCap, // Truyền thêm 3 tham số này
+                valLuongCB, valHeSo, valPhuCap, 
                 curLuongCung, tongTiet, curThuLao, curThucLinh
             );
 
@@ -221,26 +218,17 @@ public class SalaryPanel extends JPanel {
                 JOptionPane.showMessageDialog(this, "Danh sách trống, không có dữ liệu để xuất!");
                 return;
             }
-
             JFileChooser fileChooser = new JFileChooser();
             fileChooser.setDialogTitle("Chọn vị trí lưu bảng lương");
-            
-            // Gợi ý tên file: Bang_Luong_Thang_12_2025.xlsx
             int thang = (int) cboThang.getSelectedItem();
             int nam = getNam();
             String defaultFileName = "Bang_Luong_Thang_" + thang + "_" + nam + ".xlsx";
             fileChooser.setSelectedFile(new File(defaultFileName));
-
-            // Chỉ cho chọn file Excel
             FileNameExtensionFilter filter = new FileNameExtensionFilter("Excel Files (*.xlsx)", "xlsx");
             fileChooser.setFileFilter(filter);
-
             int userSelection = fileChooser.showSaveDialog(this);
-
             if (userSelection == JFileChooser.APPROVE_OPTION) {
-                File fileToSave = fileChooser.getSelectedFile();
-                // Gọi hàm từ class ExcelExporter
-                ExcelExporter.exportToExcel(tblNhanVien, fileToSave, "Luong_Thang_" + thang);
+                ExcelExporter.exportToExcel(tblNhanVien, fileChooser.getSelectedFile(), "Luong_Thang_" + thang);
             }
         });
     }
@@ -248,20 +236,15 @@ public class SalaryPanel extends JPanel {
     // --- HELPERS ---
 
     private int getNam() {
-        try {
-            return Integer.parseInt(txtNam.getText());
-        } catch (NumberFormatException e) {
-            return LocalDate.now().getYear();
-        }
+        try { return Integer.parseInt(txtNam.getText()); } 
+        catch (NumberFormatException e) { return LocalDate.now().getYear(); }
     }
 
     private void loadTable() {
         int thang = (int) cboThang.getSelectedItem();
         int nam = getNam();
-        
         modelNV = LuongDAO.getBangLuong(thang, nam);
         tblNhanVien.setModel(modelNV);
-        
         if(tblNhanVien.getColumnCount() > 0) {
             tblNhanVien.getColumnModel().getColumn(1).setPreferredWidth(150);
             tblNhanVien.getColumnModel().getColumn(6).setPreferredWidth(100);
@@ -275,7 +258,6 @@ public class SalaryPanel extends JPanel {
             int nam = getNam();
 
             Object[] data = LuongDAO.getChiTietLuong(maNV, thang, nam);
-            
             if(data != null) {
                 txtMa.setText(data[0].toString());
                 txtTen.setText(data[1].toString());
@@ -284,19 +266,15 @@ public class SalaryPanel extends JPanel {
                 
                 DecimalFormat df = new DecimalFormat("###");
                 txtLuongCB.setText(df.format(data[4]));
-                txtPhuCap.setText(df.format(data[5]));
+                txtPhuCap.setText(df.format(data[5])); // Load mức đã lưu (có thể đã bao gồm NCKH cũ)
                 
                 int soTiet = (int) data[6];
                 txtSoTiet.setText(String.valueOf(soTiet));
                 
                 double savedThucLinh = (double) data[7];
-                if(savedThucLinh > 0) {
-                     lblTongLuong.setText("Đã lưu: " + new DecimalFormat("#,###").format(savedThucLinh) + " VNĐ");
-                } else {
-                     lblTongLuong.setText("Chưa tính lương");
-                }
+                if(savedThucLinh > 0) lblTongLuong.setText("Đã lưu: " + new DecimalFormat("#,###").format(savedThucLinh) + " VNĐ");
+                else lblTongLuong.setText("Chưa tính lương");
             }
-
             String loaiHinh = txtLoaiHinh.getText().toLowerCase();
             boolean isCoHuu = loaiHinh.contains("cơ hữu") || loaiHinh.contains("biên chế");
             setTeachingVisible(!isCoHuu);
@@ -307,8 +285,7 @@ public class SalaryPanel extends JPanel {
     private void selectRowByMaNV(String maNV) {
         for(int i=0; i<tblNhanVien.getRowCount(); i++) {
             if(tblNhanVien.getValueAt(i, 0).equals(maNV)) {
-                tblNhanVien.setRowSelectionInterval(i, i);
-                break;
+                tblNhanVien.setRowSelectionInterval(i, i); break;
             }
         }
     }
@@ -326,28 +303,57 @@ public class SalaryPanel extends JPanel {
         }
     }
 
+    // --- CẬP NHẬT: LOGIC TÍNH LƯƠNG CHÍNH XÁC ---
     private void calculateSalary() {
         try {
             double heSo = Double.parseDouble(txtHeSo.getText());
             double luongCB = Double.parseDouble(txtLuongCB.getText().replace(",", "").replace(".", ""));
-            double phuCap = Double.parseDouble(txtPhuCap.getText().replace(",", "").replace(".", ""));
             
-            curLuongCung = (heSo * luongCB) + phuCap;
-            curThuLao = 0;
+            // 1. Lấy mã NV và Thời gian
+            String maNV = txtMa.getText();
+            int thang = (int) cboThang.getSelectedItem();
+            int nam = getNam();
+            
+            // 2. TÍNH LẠI PHỤ CẤP TỪ GỐC
+            // Thay vì lấy từ ô txtPhuCap (có thể đã bị cộng dồn sai), ta lấy gốc từ NhanVien + NCKH mới
+            double phuCapGoc = LuongDAO.getPhuCapCoBan(maNV); 
+            double diemNCKH = NghienCuuDAO.getTongDiemThuong(maNV, thang, nam);
+            double tienThuongNCKH = diemNCKH * 1000000; 
+            
+            double tongPhuCapMoi = phuCapGoc + tienThuongNCKH;
+            
+            // 3. Hiển thị kết quả ra ô nhập liệu để người dùng thấy
+            txtPhuCap.setText(new DecimalFormat("###").format(tongPhuCapMoi));
+            
+            // 4. HIỂN THỊ THÔNG BÁO DEBUG ĐỂ BẠN BIẾT NGUYÊN NHÂN
+            if (tienThuongNCKH > 0) {
+                 JOptionPane.showMessageDialog(this, 
+                     "Hệ thống tìm thấy " + diemNCKH + " điểm NCKH trong tháng " + thang + "/" + nam + ".\n" +
+                     "Đã cộng thêm: " + new DecimalFormat("#,###").format(tienThuongNCKH) + " VNĐ.\n" +
+                     "Tổng Phụ Cấp/Thưởng: " + new DecimalFormat("#,###").format(tongPhuCapMoi) + " VNĐ");
+            } else {
+                 // Nếu không thấy điểm nào, thông báo để kiểm tra lại năm/tháng
+                 JOptionPane.showMessageDialog(this, 
+                     "Không tìm thấy bài báo/đề tài nào của NV " + maNV + " trong tháng " + thang + "/" + nam + ".\n" +
+                     "Vui lòng kiểm tra lại ngày công bố bên mục 'Nghiên cứu KH'.");
+            }
 
+            // 5. Tính tổng thực lĩnh
+            curLuongCung = (heSo * luongCB) + tongPhuCapMoi;
+            curThuLao = 0;
             if (txtSoTiet.isEnabled()) {
                 int soTiet = Integer.parseInt(txtSoTiet.getText());
                 double donGia = Double.parseDouble(txtDonGia.getText().replace(",", "").replace(".", ""));
                 curThuLao = (soTiet * donGia);
             }
-            
             curThucLinh = curLuongCung + curThuLao;
 
             DecimalFormat df = new DecimalFormat("#,###");
             lblTongLuong.setText("Tổng Thực Lĩnh: " + df.format(curThucLinh) + " VNĐ");
+            lblTongLuong.setForeground(tienThuongNCKH > 0 ? new Color(39, 174, 96) : Color.RED);
 
         } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập đúng định dạng số (không chứa chữ cái)!");
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập đúng định dạng số!");
         }
     }
 

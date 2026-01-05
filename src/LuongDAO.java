@@ -5,9 +5,7 @@ import javax.swing.table.DefaultTableModel;
 public class LuongDAO {
 
     /**
-     * Lấy danh sách lương.
-     * SỬA LỖI: Ưu tiên hiển thị dữ liệu đã lưu trong bảng BangLuong (bl).
-     * Nếu chưa lưu (bl null) thì mới hiển thị dữ liệu gốc từ NhanVien (nv).
+     * Lấy danh sách nhân viên KÈM THEO thông tin lương của Tháng/Năm được chọn.
      */
     public static DefaultTableModel getBangLuong(int thang, int nam) {
         Vector<String> cols = new Vector<>();
@@ -21,13 +19,11 @@ public class LuongDAO {
 
         Vector<Vector<Object>> rows = new Vector<>();
 
-        // --- CÂU SQL ĐÃ SỬA ---
-        // Sử dụng ISNULL(bl.Cot, nv.Cot) để ưu tiên lấy dữ liệu lịch sử
-        String sql = "SELECT " +
-                     "nv.MaNV, nv.HoTen, nv.ChucVu, " +
-                     "ISNULL(bl.HeSo, nv.HeSoLuong) AS HienThiHeSo, " +   // Lấy Hệ số lịch sử
-                     "ISNULL(bl.LuongCB, nv.LuongCoBan) AS HienThiLuongCB, " + // Lấy Lương CB lịch sử
-                     "ISNULL(bl.PhuCap, nv.PhuCap) AS HienThiPhuCap, " +  // Lấy Phụ cấp lịch sử
+        // Ưu tiên lấy dữ liệu đã lưu trong BangLuong, nếu chưa có thì lấy từ NhanVien
+        String sql = "SELECT nv.MaNV, nv.HoTen, nv.ChucVu, " +
+                     "ISNULL(bl.HeSo, nv.HeSoLuong) AS HienThiHeSo, " +
+                     "ISNULL(bl.LuongCB, nv.LuongCoBan) AS HienThiLuongCB, " +
+                     "ISNULL(bl.PhuCap, nv.PhuCap) AS HienThiPhuCap, " +
                      "ISNULL(bl.ThucLinh, 0) AS DaLinh " +
                      "FROM NhanVien nv " +
                      "LEFT JOIN BangLuong bl ON nv.MaNV = bl.MaNV AND bl.Thang = ? AND bl.Nam = ?";
@@ -46,12 +42,9 @@ public class LuongDAO {
                 r.add(rs.getString("MaNV"));
                 r.add(rs.getString("HoTen"));
                 r.add(rs.getString("ChucVu"));
-                
-                // Lấy dữ liệu từ các cột Alias đã định nghĩa ở trên
-                r.add(rs.getDouble("HienThiHeSo")); 
+                r.add(rs.getDouble("HienThiHeSo"));
                 r.add(nf.format(rs.getDouble("HienThiLuongCB")));
                 r.add(nf.format(rs.getDouble("HienThiPhuCap")));
-                
                 double thucLinh = rs.getDouble("DaLinh");
                 r.add(nf.format(thucLinh)); 
                 rows.add(r);
@@ -67,14 +60,9 @@ public class LuongDAO {
         };
     }
 
-    /**
-     * Lấy chi tiết lương để đổ vào Form nhập liệu.
-     * Cũng áp dụng logic ưu tiên dữ liệu lịch sử.
-     */
     public static Object[] getChiTietLuong(String maNV, int thang, int nam) {
         String sql = "SELECT " +
                      "nv.MaNV, nv.HoTen, nv.LoaiHinh, " +
-                     // Ưu tiên lấy dữ liệu đã lưu trong BangLuong
                      "ISNULL(bl.HeSo, nv.HeSoLuong) AS HeSo, " +
                      "ISNULL(bl.LuongCB, nv.LuongCoBan) AS LuongCB, " +
                      "ISNULL(bl.PhuCap, nv.PhuCap) AS PhuCap, " +
@@ -95,9 +83,9 @@ public class LuongDAO {
                     rs.getString("MaNV"),
                     rs.getString("HoTen"),
                     rs.getString("LoaiHinh"),
-                    rs.getDouble("HeSo"),     // Số liệu chính xác tại thời điểm đó
-                    rs.getDouble("LuongCB"),  // Số liệu chính xác tại thời điểm đó
-                    rs.getDouble("PhuCap"),   // Số liệu chính xác tại thời điểm đó
+                    rs.getDouble("HeSo"),
+                    rs.getDouble("LuongCB"),
+                    rs.getDouble("PhuCap"),
                     rs.getObject("TongTiet") != null ? rs.getInt("TongTiet") : 0,
                     rs.getObject("ThucLinh") != null ? rs.getDouble("ThucLinh") : 0
                 };
@@ -108,14 +96,12 @@ public class LuongDAO {
         return null;
     }
 
-    // Hàm lưu (Đảm bảo logic Update/Insert đúng cột)
     public static boolean saveSingleSalary(String maNV, int thang, int nam, 
-                                           double luongCB, double heSo, double phuCap, 
+                                           double luongCB, double heSo, double phuCap,
                                            double luongCung, int tongTiet, double thuLao, double thucLinh) {
         Connection conn = null;
         try {
             conn = ConnectDatabase.getConnection();
-            
             String checkSql = "SELECT COUNT(*) FROM BangLuong WHERE MaNV=? AND Thang=? AND Nam=?";
             PreparedStatement check = conn.prepareStatement(checkSql);
             check.setString(1, maNV); check.setInt(2, thang); check.setInt(3, nam);
@@ -125,15 +111,9 @@ public class LuongDAO {
 
             String sql;
             if (exists) {
-                // UPDATE: Cập nhật lại toàn bộ các thông số mới nhập
-                sql = "UPDATE BangLuong SET " +
-                      "LuongCB=?, HeSo=?, PhuCap=?, " + 
-                      "LuongCung=?, TongTiet=?, ThuLao=?, ThucLinh=?, NgayChot=GETDATE() " +
-                      "WHERE MaNV=? AND Thang=? AND Nam=?";
+                sql = "UPDATE BangLuong SET LuongCB=?, HeSo=?, PhuCap=?, LuongCung=?, TongTiet=?, ThuLao=?, ThucLinh=?, NgayChot=GETDATE() WHERE MaNV=? AND Thang=? AND Nam=?";
             } else {
-                // INSERT
-                sql = "INSERT INTO BangLuong (LuongCB, HeSo, PhuCap, LuongCung, TongTiet, ThuLao, ThucLinh, MaNV, Thang, Nam) " +
-                      "VALUES (?,?,?,?,?,?,?,?,?,?)";
+                sql = "INSERT INTO BangLuong (LuongCB, HeSo, PhuCap, LuongCung, TongTiet, ThuLao, ThucLinh, MaNV, Thang, Nam) VALUES (?,?,?,?,?,?,?,?,?,?)";
             }
 
             PreparedStatement p = conn.prepareStatement(sql);
@@ -149,12 +129,23 @@ public class LuongDAO {
             p.setInt(10, nam);
 
             return p.executeUpdate() > 0;
-
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         } finally {
             try { if(conn != null) conn.close(); } catch(Exception e) {}
         }
+    }
+
+    // --- MỚI: Lấy phụ cấp gốc từ hồ sơ nhân viên (để tính toán lại từ đầu) ---
+    public static double getPhuCapCoBan(String maNV) {
+        String sql = "SELECT PhuCap FROM NhanVien WHERE MaNV = ?";
+        try (Connection conn = ConnectDatabase.getConnection();
+             PreparedStatement p = conn.prepareStatement(sql)) {
+            p.setString(1, maNV);
+            ResultSet rs = p.executeQuery();
+            if(rs.next()) return rs.getDouble(1);
+        } catch(Exception e) { e.printStackTrace(); }
+        return 0;
     }
 }

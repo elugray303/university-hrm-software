@@ -33,7 +33,8 @@ public class MainDashboard extends JFrame {
         btnLogout.setFocusPainted(false);
         btnLogout.addActionListener(e -> {
             if(JOptionPane.showConfirmDialog(this, "Đăng xuất?", "Xác nhận", JOptionPane.YES_NO_OPTION)==JOptionPane.YES_OPTION){
-                new LoginForm().setVisible(true); this.dispose(); 
+                // new LoginForm().setVisible(true); // Mở lại form login nếu có
+                this.dispose(); 
             }
         });
 
@@ -52,12 +53,19 @@ public class MainDashboard extends JFrame {
         JButton btnHome = new JButton("🏠 Trang chủ");
         JButton btnEmp = new JButton("👥 Quản lý Nhân sự");
         JButton btnFaculty = new JButton("📚 Khoa & Môn học");
+        
+        // --- NÚT MỚI: NGHIÊN CỨU KHOA HỌC ---
+        JButton btnResearch = new JButton("🔬 Nghiên cứu KH");
+        
         JButton btnSchedule = new JButton("📅 Xếp Thời Khóa Biểu");
         JButton btnSalary = new JButton("💰 Tính Lương"); 
         
         // STYLE
-        styleButton(btnHome); styleButton(btnEmp); 
-        styleButton(btnFaculty); styleButton(btnSchedule);
+        styleButton(btnHome); 
+        styleButton(btnEmp); 
+        styleButton(btnFaculty); 
+        styleButton(btnResearch); // Style cho nút mới
+        styleButton(btnSchedule);
         styleButton(btnSalary);
 
         // SỰ KIỆN CHUYỂN TAB
@@ -65,9 +73,12 @@ public class MainDashboard extends JFrame {
         btnEmp.addActionListener(e -> cardLayout.show(pnlCenterContent, "EMP"));
         btnFaculty.addActionListener(e -> cardLayout.show(pnlCenterContent, "FACULTY"));
         
-        // --- QUAN TRỌNG: Cập nhật danh sách nhân viên khi bấm vào tab này ---
+        // Sự kiện cho nút Nghiên cứu KH
+        btnResearch.addActionListener(e -> cardLayout.show(pnlCenterContent, "RESEARCH"));
+        
+        // Cập nhật danh sách nhân viên khi bấm vào tab Xếp lịch
         btnSchedule.addActionListener(e -> {
-            pnlSchedule.refreshStaffTable(); // Gọi hàm làm mới
+            if(pnlSchedule != null) pnlSchedule.refreshStaffTable(); 
             cardLayout.show(pnlCenterContent, "SCHEDULE");
         });
         
@@ -77,6 +88,10 @@ public class MainDashboard extends JFrame {
         pnlSidebar.add(btnHome); pnlSidebar.add(Box.createVerticalStrut(10)); 
         pnlSidebar.add(btnEmp); pnlSidebar.add(Box.createVerticalStrut(10));
         pnlSidebar.add(btnFaculty); pnlSidebar.add(Box.createVerticalStrut(10));
+        
+        // Add nút Nghiên cứu vào sidebar
+        pnlSidebar.add(btnResearch); pnlSidebar.add(Box.createVerticalStrut(10));
+        
         pnlSidebar.add(btnSchedule); pnlSidebar.add(Box.createVerticalStrut(10));
         pnlSidebar.add(btnSalary); 
         
@@ -88,24 +103,22 @@ public class MainDashboard extends JFrame {
         pnlCenterContent = new JPanel(cardLayout);
         pnlCenterContent.setBackground(Color.WHITE);
         
-        // Home
-        JPanel pnlHome = new JPanel(new GridBagLayout());
-        pnlHome.setBackground(Color.WHITE);
-        JLabel lblWelcome = new JLabel("Chào mừng Admin quay trở lại!");
-        lblWelcome.setFont(new Font("Arial", Font.BOLD, 28));
-        lblWelcome.setForeground(new Color(149, 165, 166));
-        pnlHome.add(lblWelcome);
-        
         // KHỞI TẠO CÁC PANEL
-        EmployeePanel pnlEmployee = new EmployeePanel(this);
+        DashboardPanel pnlDashboard = new DashboardPanel(); 
+        EmployeePanel pnlEmployee = new EmployeePanel(this); 
         FacultyPanel pnlFaculty = new FacultyPanel();
-        pnlSchedule = new SchedulePanel(); // Khởi tạo biến lớp
+        
+        // --- PANEL MỚI: NGHIÊN CỨU ---
+        ResearchPanel pnlResearch = new ResearchPanel();
+        
+        pnlSchedule = new SchedulePanel(); 
         SalaryPanel pnlSalary = new SalaryPanel();
 
         // ADD VÀO CARD LAYOUT
-        pnlCenterContent.add(pnlHome, "HOME");
+        pnlCenterContent.add(pnlDashboard, "HOME");
         pnlCenterContent.add(pnlEmployee, "EMP");
         pnlCenterContent.add(pnlFaculty, "FACULTY");
+        pnlCenterContent.add(pnlResearch, "RESEARCH"); // Add vào CardLayout
         pnlCenterContent.add(pnlSchedule, "SCHEDULE");
         pnlCenterContent.add(pnlSalary, "SALARY"); 
         
