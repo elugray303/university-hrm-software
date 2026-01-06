@@ -22,6 +22,9 @@ public class SchedulePanel extends JPanel {
     private JLabel lblDateRange;     
     private String selectedMaNV = null; 
     private String selectedTenNV = "";
+    
+    // Đưa nút Phân công ra biến lớp để ẩn/hiện theo quyền
+    private JButton btnAddLich; 
 
     public SchedulePanel() {
         setLayout(new BorderLayout());
@@ -79,7 +82,9 @@ public class SchedulePanel extends JPanel {
         tblStaff = new JTable();
         tblStaff.setRowHeight(25);
         tblStaff.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        refreshStaffTable(); // Load lần đầu
+        
+        // Khởi tạo xong bảng mới gọi refresh để tránh lỗi null
+        // (Lưu ý: refreshStaffTable sẽ được gọi ở cuối Constructor hoặc bởi MainDashboard)
 
         JScrollPane scrollStaff = new JScrollPane(tblStaff);
         scrollStaff.setBorder(BorderFactory.createTitledBorder("DANH SÁCH GIẢNG VIÊN (Chọn để xem lịch)"));
@@ -98,7 +103,8 @@ public class SchedulePanel extends JPanel {
         // --- PHẦN 4: TOOLBAR ---
         JPanel pnlTools = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         
-        JButton btnAddLich = new JButton("➕ Phân Công");
+        // Khởi tạo biến lớp
+        btnAddLich = new JButton("➕ Phân Công");
         btnAddLich.setBackground(new Color(46, 204, 113)); btnAddLich.setForeground(Color.WHITE);
         btnAddLich.addActionListener(e -> {
             if(selectedMaNV == null) JOptionPane.showMessageDialog(this, "Vui lòng chọn Giảng viên trước!");
@@ -126,6 +132,9 @@ public class SchedulePanel extends JPanel {
         add(splitPane, BorderLayout.CENTER);
         
         loadSchedule("");
+        
+        // Gọi hàm refresh ở cuối cùng để đảm bảo mọi thành phần đã khởi tạo
+        refreshStaffTable();
     }
     
     // --- CÁC HÀM LOGIC ---
@@ -157,15 +166,12 @@ public class SchedulePanel extends JPanel {
             LocalDate sunday = currentMonday.plusDays(6);
             DateTimeFormatter fmtFilename = DateTimeFormatter.ofPattern("dd-MM-yyyy");
             
-            // Tạo tên file gợi ý
             String fileName = selectedTenNV + " TKB " + currentMonday.format(fmtFilename) + " den " + sunday.format(fmtFilename) + ".xlsx";
             
             JFileChooser fc = new JFileChooser();
             fc.setSelectedFile(new File(fileName));
             
             if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-                // --- SỬA DÒNG NÀY ---
-                // Thêm tham số thứ 3 là tên Sheet (ví dụ: "ThoiKhoaBieu")
                 ExcelExporter.exportToExcel(tblSchedule, fc.getSelectedFile(), "ThoiKhoaBieu");
             }
         } catch (Exception ex) {
@@ -173,15 +179,38 @@ public class SchedulePanel extends JPanel {
         }
     }
 
-    // --- QUAN TRỌNG: Đã đổi thành PUBLIC để MainDashboard gọi ---
+    // --- CẬP NHẬT: LOGIC PHÂN QUYỀN TẠI ĐÂY ---
     public void refreshStaffTable() {
-        tblStaff.setModel(NhanSuDAO.getNhanVienModel());
-        // Ẩn bớt cột không cần thiết
-        // Thứ tự cột trong DAO: 0:Ma, 1:Ten, 2:NgaySinh, 3:PB, 4:CV, ...
-        for(int i=4; i<tblStaff.getColumnCount(); i++) {
-            tblStaff.getColumnModel().getColumn(i).setMinWidth(0);
-            tblStaff.getColumnModel().getColumn(i).setMaxWidth(0);
-            tblStaff.getColumnModel().getColumn(i).setWidth(0);
+        // 1. Kiểm tra quyền
+        if (Auth.isGiangVien() && Auth.maNV != null) {
+            // Nếu là Giảng viên: Load đúng 1 người
+            tblStaff.setModel(NhanSuDAO.getNhanVienByMa(Auth.maNV));
+            // Ẩn nút phân công
+            if(btnAddLich != null) btnAddLich.setVisible(false);
+        } else {
+            // Nếu là Admin: Load tất cả
+            tblStaff.setModel(NhanSuDAO.getNhanVienModel());
+            // Hiện nút phân công
+            if(btnAddLich != null) btnAddLich.setVisible(true);
+        }
+
+        // 2. Ẩn các cột không cần thiết (Giữ nguyên logic cũ của bạn)
+        // Thứ tự cột trong DAO: 0:Ma, 1:Ten, 2:NgaySinh, 3:Khoa, 4:CV...
+        // Bạn muốn ẩn từ cột thứ 4 trở đi
+        if (tblStaff.getColumnCount() > 4) {
+            for(int i=4; i<tblStaff.getColumnCount(); i++) {
+                tblStaff.getColumnModel().getColumn(i).setMinWidth(0);
+                tblStaff.getColumnModel().getColumn(i).setMaxWidth(0);
+                tblStaff.getColumnModel().getColumn(i).setWidth(0);
+            }
+        }
+        
+        // 3. Tự động chọn dòng đầu tiên cho Giảng viên để load lịch ngay
+        if (Auth.isGiangVien() && tblStaff.getRowCount() > 0) {
+            tblStaff.setRowSelectionInterval(0, 0);
+            selectedMaNV = tblStaff.getValueAt(0, 0).toString();
+            selectedTenNV = tblStaff.getValueAt(0, 1).toString();
+            loadSchedule(selectedMaNV);
         }
     }
     

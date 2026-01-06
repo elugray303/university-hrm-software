@@ -17,7 +17,7 @@ public class EmployeeDialog extends JDialog {
     private boolean isSaved = false;
     private boolean isEditMode = false;
 
-    // Màu sắc chủ đạo (Xanh lá cho Thêm, Xanh dương cho Sửa)
+    // Màu sắc
     private final Color PRIMARY_COLOR = new Color(46, 204, 113); 
     private final Color EDIT_COLOR = new Color(52, 152, 219);    
 
@@ -25,14 +25,14 @@ public class EmployeeDialog extends JDialog {
 
     public EmployeeDialog(JFrame parent, String[] data) {
         super(parent, data == null ? "Thêm Mới Nhân Sự" : "Cập Nhật Hồ Sơ", true);
-        setSize(950, 680); // Kích thước rộng rãi chuẩn HD
+        setSize(950, 680);
         setLocationRelativeTo(parent);
         setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         setLayout(new BorderLayout());
 
         if (data != null) isEditMode = true;
 
-        // --- 1. HEADER (TIÊU ĐỀ TRÊN CÙNG) ---
+        //  1. HEADER
         JPanel pnlHeader = new JPanel();
         pnlHeader.setBackground(isEditMode ? EDIT_COLOR : PRIMARY_COLOR);
         pnlHeader.setPreferredSize(new Dimension(getWidth(), 50));
@@ -43,17 +43,16 @@ public class EmployeeDialog extends JDialog {
         pnlHeader.add(lblTitle);
         this.add(pnlHeader, BorderLayout.NORTH);
 
-        // --- 2. PHẦN NỘI DUNG (Form bên trái, Ảnh bên phải) ---
+        //  2. PHẦN NỘI DUNG
         JPanel pnlContent = new JPanel(new BorderLayout(15, 15));
         pnlContent.setBorder(new EmptyBorder(15, 15, 15, 15));
 
-        // A. PANEL FORM (Sử dụng GridBagLayout để căn chỉnh đẹp)
+        // A. PANEL FORM (GridBagLayout)
         JPanel pnlForm = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5); // Khoảng cách giữa các dòng
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // --- KHỞI TẠO COMPONENTS ---
         txtMaNV = new JTextField();
         txtHoTen = new JTextField();
         txtNgaySinh = new JTextField();
@@ -76,7 +75,7 @@ public class EmployeeDialog extends JDialog {
         txtLuongCB = new JTextField("0");
         txtPhuCap = new JTextField("0");
 
-        // --- DÀN TRANG (LAYOUT) ---
+        //  DÀN TRANG 
         
         // Nhóm 1: Thông tin cá nhân
         addSectionHeader(pnlForm, "1. THÔNG TIN CÁ NHÂN", 0, gbc);
@@ -99,12 +98,11 @@ public class EmployeeDialog extends JDialog {
         addFormRow(pnlForm, "Lương Cơ Bản (VNĐ):", txtLuongCB, 13, gbc);
         addFormRow(pnlForm, "Phụ Cấp (VNĐ):", txtPhuCap, 14, gbc);
 
-        // Đẩy toàn bộ form lên trên cùng (tránh bị giãn khi phóng to)
         gbc.weighty = 1.0; 
         gbc.gridy = 15;
         pnlForm.add(new JLabel(), gbc);
 
-        // B. PANEL ẢNH (BÊN PHẢI)
+        // B. PANEL ẢNH
         JPanel pnlRight = new JPanel(new BorderLayout());
         pnlRight.setPreferredSize(new Dimension(220, 0));
         pnlRight.setBorder(BorderFactory.createTitledBorder("Ảnh Đại Diện"));
@@ -120,11 +118,11 @@ public class EmployeeDialog extends JDialog {
         pnlRight.add(lblHinhAnh, BorderLayout.CENTER);
         
         // Thêm Form và Ảnh vào Content
-        pnlContent.add(new JScrollPane(pnlForm), BorderLayout.CENTER); // JScrollPane giúp form cuộn được nếu màn hình nhỏ
+        pnlContent.add(new JScrollPane(pnlForm), BorderLayout.CENTER);
         pnlContent.add(pnlRight, BorderLayout.EAST);
         this.add(pnlContent, BorderLayout.CENTER);
 
-        // --- 3. FOOTER (NÚT BẤM DƯỚI CÙNG) ---
+        //  3. FOOTER 
         JPanel pnlBtn = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
         pnlBtn.setBackground(new Color(245, 245, 245));
         
@@ -148,25 +146,23 @@ public class EmployeeDialog extends JDialog {
         pnlBtn.add(btnCancel); pnlBtn.add(btnSave);
         this.add(pnlBtn, BorderLayout.SOUTH);
 
-        // --- ĐỔ DỮ LIỆU CŨ (NẾU ĐANG SỬA) ---
         if (isEditMode) loadOldData(data);
     }
 
-    // --- CÁC HÀM HỖ TRỢ TẠO GIAO DIỆN (Giúp code gọn hơn) ---
+    //  CÁC HÀM HỖ TRỢ TẠO GIAO DIỆN
     
     private void addSectionHeader(JPanel panel, String title, int row, GridBagConstraints gbc) {
         JLabel lbl = new JLabel(title);
         lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lbl.setForeground(new Color(44, 62, 80)); // Màu xanh đen chuyên nghiệp
-        lbl.setBorder(new EmptyBorder(15, 0, 5, 0)); // Khoảng cách trên dưới
+        lbl.setForeground(new Color(44, 62, 80));
+        lbl.setBorder(new EmptyBorder(15, 0, 5, 0));
         
         gbc.gridx = 0; gbc.gridy = row;
-        gbc.gridwidth = 2; // Header chiếm trọn 2 cột
+        gbc.gridwidth = 2;
         gbc.weightx = 1.0;
         gbc.anchor = GridBagConstraints.WEST;
         panel.add(lbl, gbc);
         
-        // Reset lại cho các dòng sau
         gbc.gridwidth = 1;
         gbc.weightx = 0.0;
         gbc.anchor = GridBagConstraints.CENTER;
@@ -189,7 +185,7 @@ public class EmployeeDialog extends JDialog {
         panel.add(field, gbc);
     }
 
-    // --- LOGIC XỬ LÝ DỮ LIỆU ---
+    //  LOGIC
 
     private void chonAnh() {
         JFileChooser fileChooser = new JFileChooser();
@@ -216,17 +212,15 @@ public class EmployeeDialog extends JDialog {
 
     private void loadOldData(String[] data) {
         // Cấu trúc mảng data từ DAO:
-        // 0:Ma, 1:Ten, 2:NgaySinh, 3:PB, 4:ChucVu, 5:TrinhDo, 6:LoaiHinh, 7:TrangThai, 
-        // 8:HeSo, 9:Luong, 10:PhuCap, 11:ThucLinh, 12:HinhAnh
+        // 0:Ma, 1:Ten, 2:NgaySinh, 3:PB, 4:ChucVu, 5:TrinhDo, 6:LoaiHinh, 7:TrangThai, 8:HeSo, 9:Luong, 10:PhuCap, 11:ThucLinh, 12:HinhAnh
         try {
             txtMaNV.setText(data[0]); 
-            txtMaNV.setEditable(false); // Không cho sửa mã
-            txtMaNV.setBackground(new Color(240,240,240)); // Màu xám nhẹ
+            txtMaNV.setEditable(false);
+            txtMaNV.setBackground(new Color(240,240,240));
             
             txtHoTen.setText(data[1]);
             txtNgaySinh.setText(data[2]);
             
-            // Chọn đúng phòng ban
             for(int i=0; i<cboPhongBan.getItemCount(); i++) 
                 if(cboPhongBan.getItemAt(i).contains(data[3])) { cboPhongBan.setSelectedIndex(i); break; }
             
@@ -239,7 +233,6 @@ public class EmployeeDialog extends JDialog {
             if(data.length > 9) txtLuongCB.setText(data[9].replace(",", "").replace(" VNĐ", ""));
             if(data.length > 10) txtPhuCap.setText(data[10].replace(",", "").replace(" VNĐ", ""));
             
-            // Xử lý ảnh (Fix lỗi null pointer cũ)
             if (data.length > 0) {
                 String hinh = data[data.length - 1]; 
                 if (hinh != null && hinh.length() > 0) setHinhAnh(hinh);

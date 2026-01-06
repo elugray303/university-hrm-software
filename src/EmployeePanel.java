@@ -66,14 +66,12 @@ public class EmployeePanel extends JPanel {
     private void loadData() {
         table.setModel(NhanSuDAO.getNhanVienModel());
         
-        // Ẩn cột Hình Ảnh (Cột cuối cùng)
         // Các cột: 0:Ma, 1:Ten, 2:NgaySinh, 3:Khoa, 4:CV, 5:TD, 6:LH, 7:TT, 8:HeSo, 9:Luong, 10:PC, 11:HinhAnh
         int lastCol = table.getColumnCount() - 1;
         table.getColumnModel().getColumn(lastCol).setMinWidth(0);
         table.getColumnModel().getColumn(lastCol).setMaxWidth(0);
         
-        // Nếu bạn muốn ẩn thêm cột Lương trên bảng chính để đỡ rối (chỉ hiện khi sửa), 
-        // bạn có thể uncomment các dòng dưới:
+        // Nếu muốn ẩn thêm cột Lương trên bảng chính để đỡ rối uncomment các dòng dưới:
         /*
         table.getColumnModel().getColumn(8).setMinWidth(0); table.getColumnModel().getColumn(8).setMaxWidth(0); // Hệ số
         table.getColumnModel().getColumn(9).setMinWidth(0); table.getColumnModel().getColumn(9).setMaxWidth(0); // Lương CB

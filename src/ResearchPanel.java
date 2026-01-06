@@ -23,9 +23,8 @@ public class ResearchPanel extends JPanel {
         pnlLeft.setBorder(BorderFactory.createTitledBorder("1. Chọn Giảng Viên"));
 
         tblStaff = new JTable();
-        // Gọi hàm refresh ngay khi khởi tạo
-        refreshData(); 
-
+        // LƯU Ý: Đã xóa dòng refreshData() ở đây để tránh lỗi NullPointer
+        
         tblStaff.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 int r = tblStaff.getSelectedRow();
@@ -44,6 +43,8 @@ public class ResearchPanel extends JPanel {
         pnlRight.setBorder(BorderFactory.createTitledBorder("2. Danh Sách Công Trình / Bài Báo"));
 
         JPanel pnlRightTop = new JPanel(new BorderLayout());
+        
+        // --- KHỞI TẠO LABEL Ở ĐÂY ---
         lblCurrentStaff = new JLabel("Vui lòng chọn giảng viên bên trái...");
         lblCurrentStaff.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblCurrentStaff.setForeground(new Color(41, 128, 185));
@@ -71,17 +72,41 @@ public class ResearchPanel extends JPanel {
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, pnlLeft, pnlRight);
         split.setDividerLocation(300);
         add(split, BorderLayout.CENTER);
+
+        // --- SỬA LỖI: CHUYỂN refreshData() XUỐNG CUỐI CÙNG ---
+        // Lúc này các biến giao diện (lblCurrentStaff, tblResearch) đã được khởi tạo xong
+        refreshData(); 
     }
 
-    // --- HÀM QUAN TRỌNG: Làm mới danh sách nhân viên ---
+    // --- HÀM LÀM MỚI DANH SÁCH (CÓ PHÂN QUYỀN) ---
     public void refreshData() {
-        tblStaff.setModel(NhanSuDAO.getNhanVienModel());
+        if (Auth.isGiangVien() && Auth.maNV != null) {
+            // Nếu là GV: Chỉ load chính mình
+            tblStaff.setModel(NhanSuDAO.getNhanVienByMa(Auth.maNV));
+        } else {
+            // Nếu là Admin: Load hết
+            tblStaff.setModel(NhanSuDAO.getNhanVienModel());
+        }
+
         // Ẩn cột không cần thiết
         if (tblStaff.getColumnCount() > 2) {
             for(int i=2; i<tblStaff.getColumnCount(); i++) {
                 tblStaff.getColumnModel().getColumn(i).setMinWidth(0);
                 tblStaff.getColumnModel().getColumn(i).setMaxWidth(0);
             }
+        }
+        
+        // Tự động chọn dòng đầu tiên nếu là Giảng viên (đỡ phải click)
+        if (Auth.isGiangVien() && tblStaff.getRowCount() > 0) {
+            tblStaff.setRowSelectionInterval(0, 0);
+            selectedMaNV = tblStaff.getValueAt(0, 0).toString();
+            String ten = tblStaff.getValueAt(0, 1).toString();
+            
+            // Lệnh này gây lỗi cũ nếu chạy trước khi lblCurrentStaff khởi tạo
+            if (lblCurrentStaff != null) { 
+                lblCurrentStaff.setText("Đang xem: " + ten.toUpperCase());
+            }
+            loadResearchData();
         }
     }
 
