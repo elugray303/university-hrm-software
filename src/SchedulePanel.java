@@ -1,5 +1,6 @@
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.MatteBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
@@ -7,6 +8,7 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.net.URL;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -22,30 +24,94 @@ public class SchedulePanel extends JPanel {
     private JLabel lblDateRange;     
     private String selectedMaNV = null; 
     private String selectedTenNV = "";
-    
-    // Đưa nút Phân công ra biến lớp để ẩn/hiện theo quyền
     private JButton btnAddLich; 
 
+    // COLORS
+    private final Color COL_PRIMARY = new Color(0, 150, 136);
+    private final Color COL_BG = new Color(245, 247, 250);
+    private final Color COL_HEADER = Color.WHITE;
+
     public SchedulePanel() {
-        setLayout(new BorderLayout());
+        setLayout(new BorderLayout(15, 15));
+        setBackground(COL_BG);
+        setBorder(new EmptyBorder(15, 15, 15, 15));
         
-        // Khởi tạo ngày hiện tại
         currentMonday = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
-        // --- PHẦN 1: THANH ĐIỀU HƯỚNG ---
-        JPanel pnlDateNav = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        JButton btnPrev = new JButton("◀ Tuần trước");
-        JButton btnNext = new JButton("Tuần sau ▶");
-        JButton btnToday = new JButton("Tuần hiện tại");
+        // --- LEFT CARD: DANH SÁCH GIẢNG VIÊN ---
+        JPanel pnlLeft = createCardPanel();
+        pnlLeft.setPreferredSize(new Dimension(350, 0));
+        addHeader(pnlLeft, "1. CHỌN GIẢNG VIÊN", "staff.png");
         
-        btnPrev.setBackground(Color.WHITE);
-        btnNext.setBackground(Color.WHITE);
-        btnToday.setBackground(new Color(230, 230, 230));
+        tblStaff = createModernTable();
+        pnlLeft.add(new JScrollPane(tblStaff), BorderLayout.CENTER);
+        
+        // Toolbar bên trái
+        JPanel pnlLeftTools = new JPanel(new GridLayout(1, 2, 10, 0));
+        pnlLeftTools.setBackground(Color.WHITE);
+        pnlLeftTools.setBorder(new EmptyBorder(10, 0, 0, 0));
+        
+        btnAddLich = createBtn("Phân Công", new Color(46, 204, 113), "add.png");
+        JButton btnExport = createBtn("Xuất Excel", new Color(39, 174, 96), "excel.png");
+        
+        pnlLeftTools.add(btnAddLich); pnlLeftTools.add(btnExport);
+        pnlLeft.add(pnlLeftTools, BorderLayout.SOUTH);
 
+        // --- RIGHT CARD: THỜI KHÓA BIỂU ---
+        JPanel pnlRight = createCardPanel();
+        
+        // Nav Bar
+        JPanel pnlNav = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        pnlNav.setBackground(Color.WHITE);
+        pnlNav.setBorder(new MatteBorder(0, 0, 1, 0, new Color(230, 230, 230)));
+        
+        JButton btnPrev = createNavBtn("◀");
+        JButton btnNext = createNavBtn("▶");
+        JButton btnToday = createNavBtn("Hiện tại");
+        
         lblDateRange = new JLabel();
-        lblDateRange.setFont(new Font("Arial", Font.BOLD, 15));
-        lblDateRange.setForeground(new Color(41, 128, 185));
+        lblDateRange.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblDateRange.setForeground(COL_PRIMARY);
+        
+        pnlNav.add(btnPrev); pnlNav.add(lblDateRange); pnlNav.add(btnNext); pnlNav.add(btnToday);
+        pnlRight.add(pnlNav, BorderLayout.NORTH);
 
+        // Table Schedule
+        String[] columns = {"Tiết", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"};
+        modelSchedule = new DefaultTableModel(new Object[15][8], columns) {
+            @Override public boolean isCellEditable(int row, int column) { return false; }
+        };
+
+        tblSchedule = new JTable(modelSchedule);
+        tblSchedule.setRowHeight(60); // Cao hơn để chứa nhiều dòng
+        tblSchedule.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        tblSchedule.setGridColor(new Color(220, 220, 220));
+        tblSchedule.setShowVerticalLines(true);
+        tblSchedule.setShowHorizontalLines(true);
+        
+        // Header style
+        tblSchedule.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                lbl.setBackground(COL_PRIMARY); lbl.setForeground(Color.WHITE);
+                lbl.setFont(new Font("Segoe UI", Font.BOLD, 14)); lbl.setHorizontalAlignment(JLabel.CENTER);
+                return lbl;
+            }
+        });
+        tblSchedule.getTableHeader().setPreferredSize(new Dimension(0, 40));
+        
+        // Custom Cell Renderer cho TKB (Wrap text)
+        tblSchedule.setDefaultRenderer(Object.class, new MultiLineCellRenderer());
+        tblSchedule.getColumnModel().getColumn(0).setMaxWidth(60); // Cột Tiết nhỏ lại
+        
+        pnlRight.add(new JScrollPane(tblSchedule), BorderLayout.CENTER);
+
+        add(pnlLeft, BorderLayout.WEST);
+        add(pnlRight, BorderLayout.CENTER);
+
+        // --- EVENTS ---
+        updateDateLabel();
+        
         btnPrev.addActionListener(e -> changeWeek(-1));
         btnNext.addActionListener(e -> changeWeek(1));
         btnToday.addActionListener(e -> {
@@ -53,41 +119,6 @@ public class SchedulePanel extends JPanel {
             updateDateLabel();
             if(selectedMaNV != null) loadSchedule(selectedMaNV);
         });
-
-        pnlDateNav.add(btnPrev); pnlDateNav.add(btnToday); pnlDateNav.add(btnNext);
-        pnlDateNav.add(Box.createHorizontalStrut(20)); pnlDateNav.add(lblDateRange);
-        
-        updateDateLabel(); 
-
-        // --- PHẦN 2: BẢNG TKB ---
-        String[] columns = {"Tiết", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"};
-        modelSchedule = new DefaultTableModel(new Object[15][8], columns) {
-            @Override public boolean isCellEditable(int row, int column) { return false; }
-        };
-
-        tblSchedule = new JTable(modelSchedule);
-        tblSchedule.setRowHeight(50); 
-        tblSchedule.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
-        
-        tblSchedule.setDefaultRenderer(Object.class, new MultiLineCellRenderer());
-        tblSchedule.getColumnModel().getColumn(0).setMaxWidth(50);
-        
-        JScrollPane scrollSchedule = new JScrollPane(tblSchedule);
-        JPanel pnlTopContainer = new JPanel(new BorderLayout());
-        pnlTopContainer.add(pnlDateNav, BorderLayout.NORTH);
-        pnlTopContainer.add(scrollSchedule, BorderLayout.CENTER);
-        pnlTopContainer.setBorder(BorderFactory.createTitledBorder("THỜI KHÓA BIỂU CHI TIẾT"));
-
-        // --- PHẦN 3: DANH SÁCH GIẢNG VIÊN ---
-        tblStaff = new JTable();
-        tblStaff.setRowHeight(25);
-        tblStaff.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        
-        // Khởi tạo xong bảng mới gọi refresh để tránh lỗi null
-        // (Lưu ý: refreshStaffTable sẽ được gọi ở cuối Constructor hoặc bởi MainDashboard)
-
-        JScrollPane scrollStaff = new JScrollPane(tblStaff);
-        scrollStaff.setBorder(BorderFactory.createTitledBorder("DANH SÁCH GIẢNG VIÊN (Chọn để xem lịch)"));
 
         tblStaff.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
@@ -100,45 +131,20 @@ public class SchedulePanel extends JPanel {
             }
         });
 
-        // --- PHẦN 4: TOOLBAR ---
-        JPanel pnlTools = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        
-        // Khởi tạo biến lớp
-        btnAddLich = new JButton("➕ Phân Công");
-        btnAddLich.setBackground(new Color(46, 204, 113)); btnAddLich.setForeground(Color.WHITE);
         btnAddLich.addActionListener(e -> {
             if(selectedMaNV == null) JOptionPane.showMessageDialog(this, "Vui lòng chọn Giảng viên trước!");
             else showAddScheduleDialog(selectedMaNV, selectedTenNV);
         });
         
-        JButton btnExport = new JButton("📊 Xuất TKB ra Excel");
-        btnExport.setBackground(new Color(39, 174, 96)); btnExport.setForeground(Color.WHITE);
         btnExport.addActionListener(e -> {
-            if (selectedMaNV == null) {
-                JOptionPane.showMessageDialog(this, "Vui lòng chọn Giảng viên để xuất lịch!");
-                return;
-            }
+            if (selectedMaNV == null) { JOptionPane.showMessageDialog(this, "Chọn Giảng viên để xuất lịch!"); return; }
             exportExcel();
         });
 
-        pnlTools.add(btnAddLich); pnlTools.add(btnExport);
-
-        JPanel pnlBottom = new JPanel(new BorderLayout());
-        pnlBottom.add(pnlTools, BorderLayout.NORTH);
-        pnlBottom.add(scrollStaff, BorderLayout.CENTER);
-
-        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, pnlTopContainer, pnlBottom);
-        splitPane.setDividerLocation(400); splitPane.setResizeWeight(0.6);
-        add(splitPane, BorderLayout.CENTER);
-        
-        loadSchedule("");
-        
-        // Gọi hàm refresh ở cuối cùng để đảm bảo mọi thành phần đã khởi tạo
         refreshStaffTable();
     }
     
-    // --- CÁC HÀM LOGIC ---
-
+    // --- LOGIC ---
     private void changeWeek(int weeksToAdd) {
         currentMonday = currentMonday.plusWeeks(weeksToAdd);
         updateDateLabel();
@@ -147,8 +153,8 @@ public class SchedulePanel extends JPanel {
     
     private void updateDateLabel() {
         LocalDate sunday = currentMonday.plusDays(6);
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        lblDateRange.setText("Tuần: " + currentMonday.format(fmt) + "  ➜  " + sunday.format(fmt));
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");
+        lblDateRange.setText(" " + currentMonday.format(fmt) + " - " + sunday.format(fmt) + " ");
     }
 
     private void loadSchedule(String maNV) {
@@ -157,55 +163,23 @@ public class SchedulePanel extends JPanel {
         Object[][] data = LichDayDAO.getScheduleMatrix(maNV, monStr, sunStr);
         String[] columns = {"Tiết", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"};
         modelSchedule.setDataVector(data, columns);
-        tblSchedule.getColumnModel().getColumn(0).setMaxWidth(50);
-        tblSchedule.setDefaultRenderer(Object.class, new MultiLineCellRenderer());
+        tblSchedule.getColumnModel().getColumn(0).setMaxWidth(60);
     }
 
-    private void exportExcel() {
-        try {
-            LocalDate sunday = currentMonday.plusDays(6);
-            DateTimeFormatter fmtFilename = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-            
-            String fileName = selectedTenNV + " TKB " + currentMonday.format(fmtFilename) + " den " + sunday.format(fmtFilename) + ".xlsx";
-            
-            JFileChooser fc = new JFileChooser();
-            fc.setSelectedFile(new File(fileName));
-            
-            if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-                ExcelExporter.exportToExcel(tblSchedule, fc.getSelectedFile(), "ThoiKhoaBieu");
-            }
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Lỗi xuất file: " + ex.getMessage());
-        }
-    }
-
-    // --- CẬP NHẬT: LOGIC PHÂN QUYỀN TẠI ĐÂY ---
     public void refreshStaffTable() {
-        // 1. Kiểm tra quyền
         if (Auth.isGiangVien() && Auth.maNV != null) {
-            // Nếu là Giảng viên: Load đúng 1 người
             tblStaff.setModel(NhanSuDAO.getNhanVienByMa(Auth.maNV));
-            // Ẩn nút phân công
             if(btnAddLich != null) btnAddLich.setVisible(false);
         } else {
-            // Nếu là Admin: Load tất cả
             tblStaff.setModel(NhanSuDAO.getNhanVienModel());
-            // Hiện nút phân công
             if(btnAddLich != null) btnAddLich.setVisible(true);
         }
-
-        // 2. Ẩn các cột không cần thiết (Giữ nguyên logic cũ của bạn)
-        // Thứ tự cột trong DAO: 0:Ma, 1:Ten, 2:NgaySinh, 3:Khoa, 4:CV...
-        // Bạn muốn ẩn từ cột thứ 4 trở đi
         if (tblStaff.getColumnCount() > 4) {
             for(int i=4; i<tblStaff.getColumnCount(); i++) {
                 tblStaff.getColumnModel().getColumn(i).setMinWidth(0);
                 tblStaff.getColumnModel().getColumn(i).setMaxWidth(0);
-                tblStaff.getColumnModel().getColumn(i).setWidth(0);
             }
         }
-        
-        // 3. Tự động chọn dòng đầu tiên cho Giảng viên để load lịch ngay
         if (Auth.isGiangVien() && tblStaff.getRowCount() > 0) {
             tblStaff.setRowSelectionInterval(0, 0);
             selectedMaNV = tblStaff.getValueAt(0, 0).toString();
@@ -214,11 +188,23 @@ public class SchedulePanel extends JPanel {
         }
     }
     
+    private void exportExcel() {
+        try {
+            LocalDate sunday = currentMonday.plusDays(6);
+            DateTimeFormatter fmtFilename = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+            String fileName = selectedTenNV + " TKB " + currentMonday.format(fmtFilename) + " den " + sunday.format(fmtFilename) + ".xlsx";
+            JFileChooser fc = new JFileChooser(); fc.setSelectedFile(new File(fileName));
+            if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+                ExcelExporter.exportToExcel(tblSchedule, fc.getSelectedFile(), "ThoiKhoaBieu");
+            }
+        } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Lỗi xuất file: " + ex.getMessage()); }
+    }
+
     private void showAddScheduleDialog(String maNV, String tenNV) {
-        JDialog d = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Xếp lịch: " + tenNV, true);
-        d.setSize(450, 480); 
-        d.setLocationRelativeTo(this);
-        d.setLayout(new GridLayout(9, 2, 10, 10));
+        JDialog d = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Phân công: " + tenNV, true);
+        d.setSize(450, 500); d.setLocationRelativeTo(this);
+        JPanel p = new JPanel(new GridLayout(9, 2, 10, 15));
+        p.setBorder(new EmptyBorder(20,20,20,20));
         
         JComboBox<String> cboMonHoc = new JComboBox<>();
         for(String mh : LichDayDAO.getDSMonHoc()) cboMonHoc.addItem(mh);
@@ -233,14 +219,14 @@ public class SchedulePanel extends JPanel {
         JButton btnLuu = new JButton("Lưu & Phân công");
         btnLuu.setBackground(new Color(46, 204, 113)); btnLuu.setForeground(Color.WHITE);
         
-        d.add(new JLabel("  Môn học:")); d.add(cboMonHoc);
-        d.add(new JLabel("  Phòng học:")); d.add(txtPhong);
-        d.add(new JLabel("  Thứ:")); d.add(cboThu);
-        d.add(new JLabel("  Tiết bắt đầu (1-15):")); d.add(txtTiet);
-        d.add(new JLabel("  Số tiết dạy:")); d.add(txtSoTiet);
-        d.add(new JLabel("  Từ ngày (yyyy-MM-dd):")); d.add(txtTuNgay);
-        d.add(new JLabel("  Đến ngày (yyyy-MM-dd):")); d.add(txtDenNgay);
-        d.add(new JLabel("")); d.add(btnLuu);
+        p.add(new JLabel("Môn học:")); p.add(cboMonHoc);
+        p.add(new JLabel("Phòng học:")); p.add(txtPhong);
+        p.add(new JLabel("Thứ:")); p.add(cboThu);
+        p.add(new JLabel("Tiết bắt đầu (1-15):")); p.add(txtTiet);
+        p.add(new JLabel("Số tiết dạy:")); p.add(txtSoTiet);
+        p.add(new JLabel("Từ ngày (yyyy-MM-dd):")); p.add(txtTuNgay);
+        p.add(new JLabel("Đến ngày (yyyy-MM-dd):")); p.add(txtDenNgay);
+        p.add(new JLabel("")); p.add(btnLuu);
         
         btnLuu.addActionListener(ev -> {
             try {
@@ -248,26 +234,62 @@ public class SchedulePanel extends JPanel {
                 int tiet = Integer.parseInt(txtTiet.getText());
                 int soTiet = Integer.parseInt(txtSoTiet.getText());
                 String tenMon = cboMonHoc.getSelectedItem() != null ? cboMonHoc.getSelectedItem().toString() : "";
-                
                 if(LichDayDAO.addLichDay(maNV, tenMon, txtPhong.getText(), thu, tiet, soTiet, txtTuNgay.getText(), txtDenNgay.getText())){
                     JOptionPane.showMessageDialog(d, "Thành công!");
                     loadSchedule(maNV); d.dispose();
                 }
             } catch(Exception ex) { JOptionPane.showMessageDialog(d, "Lỗi nhập liệu!"); }
         });
-        d.setVisible(true);
+        d.add(p); d.setVisible(true);
     }
 
+    // --- UI HELPERS ---
+    private JPanel createCardPanel() {
+        JPanel p = new JPanel(new BorderLayout()); p.setBackground(Color.WHITE);
+        p.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(220, 220, 220), 1), new EmptyBorder(10, 10, 10, 10)));
+        return p;
+    }
+    private JTable createModernTable() {
+        JTable t = new JTable(); t.setFont(new Font("Segoe UI", Font.PLAIN, 14)); t.setRowHeight(35);
+        t.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                lbl.setBackground(COL_PRIMARY); lbl.setForeground(Color.WHITE);
+                lbl.setFont(new Font("Segoe UI", Font.BOLD, 14)); lbl.setHorizontalAlignment(JLabel.CENTER);
+                return lbl;
+            }
+        });
+        return t;
+    }
+    private JButton createBtn(String t, Color bg, String i) {
+        JButton b = new JButton(t); b.setBackground(bg); b.setForeground(Color.WHITE);
+        b.setFocusPainted(false); b.setPreferredSize(new Dimension(0, 40));
+        ImageIcon icon = loadResizedIcon(i, 20, 20); if(icon!=null) b.setIcon(icon);
+        return b;
+    }
+    private JButton createNavBtn(String t) {
+        JButton b = new JButton(t); b.setBackground(Color.WHITE); b.setFocusPainted(false);
+        return b;
+    }
+    private void addHeader(JPanel c, String t, String i) {
+        JPanel h = new JPanel(new FlowLayout(FlowLayout.LEFT)); h.setBackground(Color.WHITE);
+        JLabel l = new JLabel(t); l.setFont(new Font("Segoe UI", Font.BOLD, 16)); l.setForeground(new Color(50,50,50));
+        ImageIcon icon = loadResizedIcon(i, 30, 30); if(icon!=null) l.setIcon(icon);
+        h.add(l); c.add(h, BorderLayout.NORTH);
+    }
+    private ImageIcon loadResizedIcon(String path, int w, int h) {
+        URL url = getClass().getResource("/icons/" + path);
+        if (url == null) return null;
+        Image scaled = new ImageIcon(url).getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
+        return new ImageIcon(scaled);
+    }
     class MultiLineCellRenderer extends JTextArea implements TableCellRenderer {
-        public MultiLineCellRenderer() {
-            setLineWrap(true); setWrapStyleWord(true); setOpaque(true);
-            setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        }
+        public MultiLineCellRenderer() { setLineWrap(true); setWrapStyleWord(true); setOpaque(true); setFont(new Font("Segoe UI", Font.PLAIN, 12)); }
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             setText(value == null ? "" : value.toString());
-            setBackground(isSelected ? table.getSelectionBackground() : (column==0 ? new Color(240,240,240) : Color.WHITE));
-            setForeground(isSelected ? table.getSelectionForeground() : Color.BLACK);
-            setBorder(BorderFactory.createMatteBorder(0, 0, 1, 1, Color.LIGHT_GRAY));
+            setBackground(isSelected ? new Color(220, 240, 255) : (column==0 ? new Color(240,240,240) : Color.WHITE));
+            setForeground(Color.BLACK);
+            setBorder(BorderFactory.createMatteBorder(0, 0, 1, 1, new Color(230,230,230)));
             return this;
         }
     }

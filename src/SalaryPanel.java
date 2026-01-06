@@ -1,159 +1,137 @@
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.MatteBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import javax.swing.JFileChooser;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import java.io.File;
+import java.net.URL;
 
 public class SalaryPanel extends JPanel {
 
-    // --- COMPONENTS ---
     private JTable tblNhanVien;
     private DefaultTableModel modelNV;
     
-    // Form Inputs
+    // Inputs
     private JTextField txtMa, txtTen, txtLoaiHinh;
     private JTextField txtLuongCB, txtHeSo, txtPhuCap;
     private JTextField txtSoTiet, txtDonGia;
     private JLabel lblTongLuong;
     
-    // Panels
-    private JPanel pnlTeaching; 
-    
-    // Control Time
     private JComboBox<Integer> cboThang;
     private JTextField txtNam;
 
-    // Biến lưu tạm
-    private double curLuongCung = 0;
-    private double curThuLao = 0;
-    private double curThucLinh = 0;
+    // Biến lưu giá trị tính toán
+    private double curLuongCung = 0, curThuLao = 0, curThucLinh = 0;
+
+    // COLORS
+    private final Color COL_PRIMARY = new Color(0, 150, 136);
+    private final Color COL_BG = new Color(245, 247, 250);
 
     public SalaryPanel() {
-        setLayout(new BorderLayout(10, 10));
-        setBorder(new EmptyBorder(10, 10, 10, 10));
+        setLayout(new BorderLayout(15, 15));
+        setBackground(COL_BG);
+        setBorder(new EmptyBorder(15, 15, 15, 15));
 
-        // --- 1. TOOLBAR ---
-        JPanel pnlToolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        pnlToolbar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY));
+        // --- 1. TOP CARD: TOOLBAR ---
+        JPanel pnlToolbar = createCardPanel();
+        pnlToolbar.setLayout(new FlowLayout(FlowLayout.LEFT, 15, 10));
         
         cboThang = new JComboBox<>();
         for(int i=1; i<=12; i++) cboThang.addItem(i);
         cboThang.setSelectedItem(LocalDate.now().getMonthValue());
         
         txtNam = new JTextField(String.valueOf(LocalDate.now().getYear()), 4);
+        txtNam.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        txtNam.setHorizontalAlignment(JTextField.CENTER);
         
-        JButton btnReload = new JButton("🔄 Tải lại danh sách");
-        JButton btnChotSo = new JButton("💾 Chốt Cả Tháng");
-        JButton btnExcel = new JButton("📊 Xuất Excel");
-        
-        btnChotSo.setBackground(new Color(230, 126, 34)); btnChotSo.setForeground(Color.WHITE);
-        btnExcel.setBackground(new Color(39, 174, 96)); btnExcel.setForeground(Color.WHITE);
+        JButton btnReload = createBtn("Tải DS", new Color(52, 152, 219), "refresh.png");
+        JButton btnExcel = createBtn("Xuất Excel", new Color(39, 174, 96), "excel.png");
 
-        pnlToolbar.add(new JLabel("Kỳ lương: Tháng ")); pnlToolbar.add(cboThang);
-        pnlToolbar.add(new JLabel(" Năm ")); pnlToolbar.add(txtNam);
+        pnlToolbar.add(new JLabel("Tháng:")); pnlToolbar.add(cboThang);
+        pnlToolbar.add(new JLabel("Năm:")); pnlToolbar.add(txtNam);
         pnlToolbar.add(Box.createHorizontalStrut(20));
-        pnlToolbar.add(btnReload);
-        pnlToolbar.add(btnChotSo);
-        pnlToolbar.add(btnExcel);
-
+        pnlToolbar.add(btnReload); pnlToolbar.add(btnExcel);
+        
         add(pnlToolbar, BorderLayout.NORTH);
 
-        // --- 2. SPLIT PANE ---
-        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
-        splitPane.setResizeWeight(0.5); 
+        // --- 2. MAIN CONTENT (Split: Left List - Right Form) ---
+        JPanel pnlCenter = new JPanel(new BorderLayout(15, 0));
+        pnlCenter.setOpaque(false);
+
+        // A. LEFT: LIST
+        JPanel pnlLeft = createCardPanel();
+        pnlLeft.setPreferredSize(new Dimension(500, 0));
+        addHeader(pnlLeft, "1. DANH SÁCH NHÂN SỰ", "staff.png");
         
-        // A. NỬA TRÊN: DANH SÁCH ---
-        JPanel pnlList = new JPanel(new BorderLayout());
-        pnlList.setBorder(BorderFactory.createTitledBorder("1. DANH SÁCH NHÂN SỰ & THỰC LĨNH"));
+        tblNhanVien = createModernTable();
+        pnlLeft.add(new JScrollPane(tblNhanVien), BorderLayout.CENTER);
+        pnlCenter.add(pnlLeft, BorderLayout.CENTER);
+
+        // B. RIGHT: DETAIL FORM
+        JPanel pnlRight = createCardPanel();
+        pnlRight.setPreferredSize(new Dimension(400, 0));
+        addHeader(pnlRight, "2. TÍNH LƯƠNG CHI TIẾT", "calculator.png");
         
-        tblNhanVien = new JTable();
-        tblNhanVien.setRowHeight(25);
-        tblNhanVien.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        pnlList.add(new JScrollPane(tblNhanVien), BorderLayout.CENTER);
-        
-        // B. NỬA DƯỚI: FORM CHI TIẾT ---
-        JPanel pnlDetail = new JPanel(new BorderLayout(10, 10));
-        pnlDetail.setBorder(BorderFactory.createTitledBorder("2. TÍNH LƯƠNG & LƯU TRỮ"));
-        
-        // Form Layout
         JPanel pnlForm = new JPanel(new GridBagLayout());
+        pnlForm.setBackground(Color.WHITE);
+        pnlForm.setBorder(new EmptyBorder(10, 20, 10, 20));
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 15); 
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        
+        gbc.insets = new Insets(8, 5, 8, 5); gbc.fill = GridBagConstraints.HORIZONTAL;
+
         // Init Fields
-        txtMa = new JTextField(10); txtMa.setEditable(false); txtMa.setBackground(new Color(240,240,240));
-        txtTen = new JTextField(15); txtTen.setEditable(false); txtTen.setBackground(new Color(240,240,240));
-        txtLoaiHinh = new JTextField(15); txtLoaiHinh.setEditable(false); txtLoaiHinh.setBackground(new Color(240,240,240));
-        
-        txtLuongCB = new JTextField("0", 10);
-        txtHeSo = new JTextField("1.0", 5);
-        txtPhuCap = new JTextField("0", 10);
-        txtSoTiet = new JTextField("0", 5);
-        txtDonGia = new JTextField("50000", 10);
+        txtMa = createReadOnlyField(); txtTen = createReadOnlyField(); txtLoaiHinh = createReadOnlyField();
+        txtLuongCB = createField(); txtHeSo = createField(); txtPhuCap = createField();
+        txtSoTiet = createField(); txtDonGia = createField(); txtDonGia.setText("50000");
 
-        // Layout Components
-        addSectionTitle(pnlForm, "Thông Tin Nhân Viên", 0, gbc);
-        addLabel(pnlForm, "Mã NV:", 1, 0, gbc); addField(pnlForm, txtMa, 1, 1, gbc);
-        addLabel(pnlForm, "Họ Tên:", 1, 2, gbc); addField(pnlForm, txtTen, 1, 3, gbc);
-        addLabel(pnlForm, "Loại Hình:", 2, 0, gbc); addField(pnlForm, txtLoaiHinh, 2, 1, gbc);
+        addSection(pnlForm, "Thông Tin Chung", 0, gbc);
+        addLabel(pnlForm, "Mã NV:", 1, gbc); addComp(pnlForm, txtMa, 1, gbc);
+        addLabel(pnlForm, "Họ Tên:", 2, gbc); addComp(pnlForm, txtTen, 2, gbc);
+        addLabel(pnlForm, "Loại Hình:", 3, gbc); addComp(pnlForm, txtLoaiHinh, 3, gbc);
 
-        addSectionTitle(pnlForm, "Lương Cố Định", 3, gbc);
-        addLabel(pnlForm, "Lương CB:", 4, 0, gbc); addField(pnlForm, txtLuongCB, 4, 1, gbc);
-        addLabel(pnlForm, "Hệ Số:", 4, 2, gbc); addField(pnlForm, txtHeSo, 4, 3, gbc);
-        addLabel(pnlForm, "Thưởng/PC:", 5, 0, gbc); addField(pnlForm, txtPhuCap, 5, 1, gbc);
+        addSection(pnlForm, "Lương Cố Định", 4, gbc);
+        addLabel(pnlForm, "Lương CB:", 5, gbc); addComp(pnlForm, txtLuongCB, 5, gbc);
+        addLabel(pnlForm, "Hệ Số:", 6, gbc); addComp(pnlForm, txtHeSo, 6, gbc);
+        addLabel(pnlForm, "Phụ Cấp (+NCKH):", 7, gbc); addComp(pnlForm, txtPhuCap, 7, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 4; gbc.insets = new Insets(15, 5, 5, 5);
-        pnlForm.add(new JLabel("<html><b>Thù Lao Giảng Dạy</b></html>"), gbc);
-        
-        pnlTeaching = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        pnlTeaching.setOpaque(false);
-        pnlTeaching.add(new JLabel("Số Tiết Dạy: ")); pnlTeaching.add(txtSoTiet);
-        pnlTeaching.add(Box.createHorizontalStrut(20));
-        pnlTeaching.add(new JLabel("Đơn Giá/Tiết: ")); pnlTeaching.add(txtDonGia);
-        
-        gbc.gridy = 7;
-        pnlForm.add(pnlTeaching, gbc);
-        
+        addSection(pnlForm, "Thù Lao Giảng Dạy", 8, gbc);
+        addLabel(pnlForm, "Số Tiết:", 9, gbc); addComp(pnlForm, txtSoTiet, 9, gbc);
+        addLabel(pnlForm, "Đơn Giá:", 10, gbc); addComp(pnlForm, txtDonGia, 10, gbc);
+
+        pnlRight.add(new JScrollPane(pnlForm), BorderLayout.CENTER);
+
         // Footer Actions
-        JPanel pnlAction = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        pnlAction.setBackground(new Color(240, 240, 240));
-        pnlAction.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.LIGHT_GRAY));
+        JPanel pnlAction = new JPanel(new GridLayout(2, 1, 10, 10));
+        pnlAction.setBackground(new Color(245, 245, 245));
+        pnlAction.setBorder(new EmptyBorder(15, 15, 15, 15));
         
-        JButton btnTinh = new JButton("🧮 TÍNH LƯƠNG");
-        JButton btnLuuKQ = new JButton("💾 LƯU KẾT QUẢ"); 
+        lblTongLuong = new JLabel("0 VNĐ", SwingConstants.CENTER);
+        lblTongLuong.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        lblTongLuong.setForeground(new Color(231, 76, 60));
         
-        btnTinh.setFont(new Font("Arial", Font.BOLD, 14));
-        btnTinh.setBackground(new Color(46, 204, 113)); btnTinh.setForeground(Color.WHITE);
+        JPanel pBtns = new JPanel(new GridLayout(1, 2, 10, 0));
+        pBtns.setOpaque(false);
+        JButton btnTinh = createBtn("TÍNH TOÁN", new Color(46, 204, 113), "calculator.png");
+        JButton btnLuu = createBtn("LƯU KẾT QUẢ", new Color(52, 152, 219), "save.png");
+        btnLuu.setEnabled(false);
         
-        btnLuuKQ.setFont(new Font("Arial", Font.BOLD, 14));
-        btnLuuKQ.setBackground(new Color(52, 152, 219)); btnLuuKQ.setForeground(Color.WHITE);
-        btnLuuKQ.setEnabled(false);
+        pBtns.add(btnTinh); pBtns.add(btnLuu);
+        pnlAction.add(lblTongLuong); pnlAction.add(pBtns);
         
-        lblTongLuong = new JLabel("Tổng Thực Lĩnh: 0 VNĐ");
-        lblTongLuong.setFont(new Font("Arial", Font.BOLD, 20));
-        lblTongLuong.setForeground(Color.RED);
+        pnlRight.add(pnlAction, BorderLayout.SOUTH);
+        pnlCenter.add(pnlRight, BorderLayout.EAST);
         
-        pnlAction.add(btnTinh);
-        pnlAction.add(btnLuuKQ);
-        pnlAction.add(lblTongLuong);
-
-        pnlDetail.add(pnlForm, BorderLayout.CENTER);
-        pnlDetail.add(pnlAction, BorderLayout.SOUTH);
-
-        splitPane.setTopComponent(pnlList);
-        splitPane.setBottomComponent(pnlDetail);
-        add(splitPane, BorderLayout.CENTER);
+        add(pnlCenter, BorderLayout.CENTER);
 
         // --- LOGIC & EVENTS ---
-        
         loadTable();
-
         ActionListener timeChangeListener = e -> loadTable();
         cboThang.addActionListener(timeChangeListener);
         txtNam.addActionListener(timeChangeListener);
@@ -161,91 +139,62 @@ public class SalaryPanel extends JPanel {
         tblNhanVien.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 int row = tblNhanVien.getSelectedRow();
-                if(row != -1) {
-                    loadEmployeeData(row);
-                    btnLuuKQ.setEnabled(false);
-                }
+                if(row != -1) { loadEmployeeData(row); btnLuu.setEnabled(false); }
             }
         });
         
-        btnTinh.addActionListener(e -> {
-            calculateSalary();
-            btnLuuKQ.setEnabled(true);
-        });
+        btnTinh.addActionListener(e -> { calculateSalary(); btnLuu.setEnabled(true); });
         
-        // Xử lý nút LƯU KẾT QUẢ
-        btnLuuKQ.addActionListener(e -> {
+        btnLuu.addActionListener(e -> {
             String maNV = txtMa.getText();
             if(maNV.isEmpty()) return;
-
-            int thang = (int) cboThang.getSelectedItem();
-            int nam = getNam();
-            
-            int tongTiet = 0;
-            double valLuongCB = 0;
-            double valHeSo = 1;
-            double valPhuCap = 0;
-            
             try { 
-                tongTiet = Integer.parseInt(txtSoTiet.getText()); 
-                valLuongCB = Double.parseDouble(txtLuongCB.getText().replace(",", "").replace(".", ""));
-                valHeSo = Double.parseDouble(txtHeSo.getText().replace(",", "").replace(".", ""));
-                valPhuCap = Double.parseDouble(txtPhuCap.getText().replace(",", "").replace(".", ""));
-            } catch(Exception ex) {
-                JOptionPane.showMessageDialog(this, "Vui lòng kiểm tra lại định dạng số!");
-                return;
-            }
-            
-            boolean result = LuongDAO.saveSingleSalary(
-                maNV, thang, nam, 
-                valLuongCB, valHeSo, valPhuCap, 
-                curLuongCung, tongTiet, curThuLao, curThucLinh
-            );
-
-            if(result) {
-                JOptionPane.showMessageDialog(this, "Đã lưu thành công chi tiết lương!");
-                loadTable(); 
-                selectRowByMaNV(maNV);
-            } else {
-                JOptionPane.showMessageDialog(this, "Lỗi khi lưu dữ liệu!");
-            }
+                int tongTiet = Integer.parseInt(txtSoTiet.getText()); 
+                // Sử dụng hàm parse tương ứng cho từng loại dữ liệu
+                double valLuongCB = parseMoney(txtLuongCB);
+                double valHeSo = parseCoefficient(txtHeSo);
+                double valPhuCap = parseMoney(txtPhuCap);
+                
+                boolean result = LuongDAO.saveSingleSalary(maNV, (int)cboThang.getSelectedItem(), getNam(), valLuongCB, valHeSo, valPhuCap, curLuongCung, tongTiet, curThuLao, curThucLinh);
+                if(result) {
+                    JOptionPane.showMessageDialog(this, "Đã lưu thành công!");
+                    loadTable(); selectRowByMaNV(maNV);
+                }
+            } catch(Exception ex) { JOptionPane.showMessageDialog(this, "Lỗi nhập liệu: " + ex.getMessage()); }
         });
 
         btnReload.addActionListener(e -> loadTable());
-        
-        btnExcel.addActionListener(e -> {
-            if (tblNhanVien.getRowCount() == 0) {
-                JOptionPane.showMessageDialog(this, "Danh sách trống, không có dữ liệu để xuất!");
-                return;
-            }
-            JFileChooser fileChooser = new JFileChooser();
-            fileChooser.setDialogTitle("Chọn vị trí lưu bảng lương");
-            int thang = (int) cboThang.getSelectedItem();
-            int nam = getNam();
-            String defaultFileName = "Bang_Luong_Thang_" + thang + "_" + nam + ".xlsx";
-            fileChooser.setSelectedFile(new File(defaultFileName));
-            FileNameExtensionFilter filter = new FileNameExtensionFilter("Excel Files (*.xlsx)", "xlsx");
-            fileChooser.setFileFilter(filter);
-            int userSelection = fileChooser.showSaveDialog(this);
-            if (userSelection == JFileChooser.APPROVE_OPTION) {
-                ExcelExporter.exportToExcel(tblNhanVien, fileChooser.getSelectedFile(), "Luong_Thang_" + thang);
-            }
-        });
+        btnExcel.addActionListener(e -> exportExcel());
     }
 
-    // --- HELPERS ---
-
-    private int getNam() {
-        try { return Integer.parseInt(txtNam.getText()); } 
-        catch (NumberFormatException e) { return LocalDate.now().getYear(); }
+    // --- HELPERS: XỬ LÝ SỐ LIỆU ---
+    
+    // 1. Hàm cho Hệ Số (Giữ lại dấu thập phân)
+    // Ví dụ: "1.5" -> 1.5 | "1,5" -> 1.5
+    private double parseCoefficient(JTextField t) { 
+        String text = t.getText().trim();
+        if(text.isEmpty()) return 0;
+        try {
+            return Double.parseDouble(text.replace(",", ".")); 
+        } catch (NumberFormatException e) { return 0; }
     }
+
+    // 2. Hàm cho Tiền Tệ (Xóa hết dấu phân cách)
+    // Ví dụ: "10.000.000" -> 10000000 | "500,000" -> 500000
+    private double parseMoney(JTextField t) { 
+        String text = t.getText().trim();
+        if(text.isEmpty()) return 0;
+        try {
+            return Double.parseDouble(text.replace(",", "").replace(".", "")); 
+        } catch (NumberFormatException e) { return 0; }
+    }
+
+    private int getNam() { try { return Integer.parseInt(txtNam.getText()); } catch(Exception e) { return LocalDate.now().getYear(); } }
 
     private void loadTable() {
-        int thang = (int) cboThang.getSelectedItem();
-        int nam = getNam();
-        modelNV = LuongDAO.getBangLuong(thang, nam);
+        modelNV = LuongDAO.getBangLuong((int)cboThang.getSelectedItem(), getNam());
         tblNhanVien.setModel(modelNV);
-        if(tblNhanVien.getColumnCount() > 0) {
+        if(tblNhanVien.getColumnCount()>0) {
             tblNhanVien.getColumnModel().getColumn(1).setPreferredWidth(150);
             tblNhanVien.getColumnModel().getColumn(6).setPreferredWidth(100);
         }
@@ -253,130 +202,144 @@ public class SalaryPanel extends JPanel {
 
     private void loadEmployeeData(int row) {
         try {
-            String maNV = getValue(row, 0);
-            int thang = (int) cboThang.getSelectedItem();
-            int nam = getNam();
-
-            Object[] data = LuongDAO.getChiTietLuong(maNV, thang, nam);
+            String maNV = tblNhanVien.getValueAt(row, 0).toString();
+            Object[] data = LuongDAO.getChiTietLuong(maNV, (int)cboThang.getSelectedItem(), getNam());
             if(data != null) {
-                txtMa.setText(data[0].toString());
-                txtTen.setText(data[1].toString());
-                txtLoaiHinh.setText(data[2].toString());
+                txtMa.setText(data[0].toString()); txtTen.setText(data[1].toString()); txtLoaiHinh.setText(data[2].toString());
                 txtHeSo.setText(String.valueOf(data[3]));
                 
                 DecimalFormat df = new DecimalFormat("###");
-                txtLuongCB.setText(df.format(data[4]));
-                txtPhuCap.setText(df.format(data[5])); // Load mức đã lưu (có thể đã bao gồm NCKH cũ)
+                txtLuongCB.setText(df.format(data[4])); 
+                txtPhuCap.setText(df.format(data[5])); 
                 
-                int soTiet = (int) data[6];
-                txtSoTiet.setText(String.valueOf(soTiet));
-                
-                double savedThucLinh = (double) data[7];
-                if(savedThucLinh > 0) lblTongLuong.setText("Đã lưu: " + new DecimalFormat("#,###").format(savedThucLinh) + " VNĐ");
-                else lblTongLuong.setText("Chưa tính lương");
+                txtSoTiet.setText(String.valueOf(data[6]));
+                double saved = (double) data[7];
+                lblTongLuong.setText(saved > 0 ? "Đã lưu: " + new DecimalFormat("#,###").format(saved) + " VNĐ" : "0 VNĐ");
             }
-            String loaiHinh = txtLoaiHinh.getText().toLowerCase();
-            boolean isCoHuu = loaiHinh.contains("cơ hữu") || loaiHinh.contains("biên chế");
-            setTeachingVisible(!isCoHuu);
-
+            
+            String lh = txtLoaiHinh.getText().toLowerCase();
+            boolean isCoHuu = lh.contains("cơ hữu") || lh.contains("biên chế");
+            txtSoTiet.setEnabled(!isCoHuu); txtDonGia.setEnabled(!isCoHuu);
+            
+            if(isCoHuu) { 
+                txtSoTiet.setText("0"); txtSoTiet.setBackground(new Color(240,240,240)); 
+            } else {
+                txtSoTiet.setBackground(Color.WHITE);
+            }
         } catch (Exception e) { e.printStackTrace(); }
     }
     
-    private void selectRowByMaNV(String maNV) {
-        for(int i=0; i<tblNhanVien.getRowCount(); i++) {
-            if(tblNhanVien.getValueAt(i, 0).equals(maNV)) {
-                tblNhanVien.setRowSelectionInterval(i, i); break;
-            }
-        }
-    }
-    
-    private void setTeachingVisible(boolean visible) {
-        txtSoTiet.setEnabled(visible);
-        txtDonGia.setEnabled(visible);
-        if (!visible) {
-            txtSoTiet.setText("0"); 
-            txtSoTiet.setBackground(new Color(240,240,240));
-            txtDonGia.setBackground(new Color(240,240,240));
-        } else {
-            txtSoTiet.setBackground(Color.WHITE);
-            txtDonGia.setBackground(Color.WHITE);
-        }
-    }
-
-    // --- CẬP NHẬT: LOGIC TÍNH LƯƠNG CHÍNH XÁC ---
+    // --- [LOGIC TÍNH TOÁN CHÍNH] ---
     private void calculateSalary() {
         try {
-            double heSo = Double.parseDouble(txtHeSo.getText());
-            double luongCB = Double.parseDouble(txtLuongCB.getText().replace(",", "").replace(".", ""));
-            
-            // 1. Lấy mã NV và Thời gian
             String maNV = txtMa.getText();
+            if (maNV.isEmpty()) return;
+
+            // 1. Lấy dữ liệu từ giao diện (Dùng đúng hàm parse cho từng loại)
+            double heSo = parseCoefficient(txtHeSo);
+            double luongCB = parseMoney(txtLuongCB);
+            
+            // 2. Lấy Phụ Cấp GỐC từ Database để reset (tránh cộng dồn)
+            double phuCapGoc = getRawPhuCapFromDB(maNV); 
+            
+            // 3. Lấy điểm thưởng NCKH mới nhất
             int thang = (int) cboThang.getSelectedItem();
             int nam = getNam();
-            
-            // 2. TÍNH LẠI PHỤ CẤP TỪ GỐC
-            // Thay vì lấy từ ô txtPhuCap (có thể đã bị cộng dồn sai), ta lấy gốc từ NhanVien + NCKH mới
-            double phuCapGoc = LuongDAO.getPhuCapCoBan(maNV); 
             double diemNCKH = NghienCuuDAO.getTongDiemThuong(maNV, thang, nam);
-            double tienThuongNCKH = diemNCKH * 1000000; 
+            double thuongNCKH = diemNCKH * 1000000; 
             
-            double tongPhuCapMoi = phuCapGoc + tienThuongNCKH;
-            
-            // 3. Hiển thị kết quả ra ô nhập liệu để người dùng thấy
+            // 4. Tính lại tổng phụ cấp & GHI ĐÈ vào ô nhập liệu
+            double tongPhuCapMoi = phuCapGoc + thuongNCKH;
             txtPhuCap.setText(new DecimalFormat("###").format(tongPhuCapMoi));
-            
-            // 4. HIỂN THỊ THÔNG BÁO DEBUG ĐỂ BẠN BIẾT NGUYÊN NHÂN
-            if (tienThuongNCKH > 0) {
-                 JOptionPane.showMessageDialog(this, 
-                     "Hệ thống tìm thấy " + diemNCKH + " điểm NCKH trong tháng " + thang + "/" + nam + ".\n" +
-                     "Đã cộng thêm: " + new DecimalFormat("#,###").format(tienThuongNCKH) + " VNĐ.\n" +
-                     "Tổng Phụ Cấp/Thưởng: " + new DecimalFormat("#,###").format(tongPhuCapMoi) + " VNĐ");
-            } else {
-                 // Nếu không thấy điểm nào, thông báo để kiểm tra lại năm/tháng
-                 JOptionPane.showMessageDialog(this, 
-                     "Không tìm thấy bài báo/đề tài nào của NV " + maNV + " trong tháng " + thang + "/" + nam + ".\n" +
-                     "Vui lòng kiểm tra lại ngày công bố bên mục 'Nghiên cứu KH'.");
-            }
 
-            // 5. Tính tổng thực lĩnh
+            // 5. Tính lương cứng
             curLuongCung = (heSo * luongCB) + tongPhuCapMoi;
+
+            // 6. Tính thù lao giảng dạy
             curThuLao = 0;
             if (txtSoTiet.isEnabled()) {
-                int soTiet = Integer.parseInt(txtSoTiet.getText());
-                double donGia = Double.parseDouble(txtDonGia.getText().replace(",", "").replace(".", ""));
-                curThuLao = (soTiet * donGia);
+                double donGia = parseMoney(txtDonGia);
+                int soTiet = txtSoTiet.getText().isEmpty() ? 0 : Integer.parseInt(txtSoTiet.getText());
+                curThuLao = soTiet * donGia;
             }
+
+            // 7. Tổng thực lĩnh
             curThucLinh = curLuongCung + curThuLao;
-
-            DecimalFormat df = new DecimalFormat("#,###");
-            lblTongLuong.setText("Tổng Thực Lĩnh: " + df.format(curThucLinh) + " VNĐ");
-            lblTongLuong.setForeground(tienThuongNCKH > 0 ? new Color(39, 174, 96) : Color.RED);
-
-        } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập đúng định dạng số!");
+            
+            lblTongLuong.setText(new DecimalFormat("#,###").format(curThucLinh) + " VNĐ");
+            
+            String msg = "Đã tính toán lại cho nhân viên " + txtTen.getText() + ":\n" +
+                         "- Hệ số: " + heSo + "\n" +
+                         "- Phụ cấp gốc: " + new DecimalFormat("#,###").format(phuCapGoc) + "\n" +
+                         "- Thưởng NCKH (" + diemNCKH + " điểm): " + new DecimalFormat("#,###").format(thuongNCKH);
+            JOptionPane.showMessageDialog(this, msg);
+            
+        } catch (Exception e) { 
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi tính toán: " + e.getMessage()); 
         }
     }
 
-    private String getValue(int row, int col) {
-        Object val = tblNhanVien.getValueAt(row, col);
-        return val == null ? "" : val.toString();
+    private double getRawPhuCapFromDB(String maNV) {
+        double pc = 0;
+        String sql = "SELECT PhuCap FROM NhanVien WHERE MaNV = ?";
+        try (Connection conn = ConnectDatabase.getConnection();
+             PreparedStatement p = conn.prepareStatement(sql)) {
+            p.setString(1, maNV);
+            ResultSet rs = p.executeQuery();
+            if (rs.next()) pc = rs.getDouble("PhuCap");
+        } catch (Exception e) { e.printStackTrace(); }
+        return pc;
+    }
+
+    private void selectRowByMaNV(String maNV) {
+        for(int i=0; i<tblNhanVien.getRowCount(); i++) if(tblNhanVien.getValueAt(i, 0).equals(maNV)) { tblNhanVien.setRowSelectionInterval(i, i); break; }
     }
     
-    private void addLabel(JPanel p, String text, int row, int col, GridBagConstraints gbc) {
-        gbc.gridx = col; gbc.gridy = row; gbc.gridwidth = 1; gbc.weightx = 0.0;
-        gbc.anchor = GridBagConstraints.EAST;
-        p.add(new JLabel(text), gbc);
+    private void exportExcel() {
+        if(tblNhanVien.getRowCount()==0) return;
+        JFileChooser fc = new JFileChooser();
+        fc.setSelectedFile(new File("Bang_Luong_Thang_" + cboThang.getSelectedItem() + ".xlsx"));
+        if(fc.showSaveDialog(this)==JFileChooser.APPROVE_OPTION) ExcelExporter.exportToExcel(tblNhanVien, fc.getSelectedFile(), "Luong");
     }
-    private void addField(JPanel p, JTextField field, int row, int col, GridBagConstraints gbc) {
-        gbc.gridx = col; gbc.gridy = row; gbc.gridwidth = 1; gbc.weightx = 1.0;
-        gbc.anchor = GridBagConstraints.WEST;
-        p.add(field, gbc);
+
+    // --- UI COMPONENTS ---
+    private JPanel createCardPanel() {
+        JPanel p = new JPanel(new BorderLayout()); p.setBackground(Color.WHITE);
+        p.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(220, 220, 220), 1), new EmptyBorder(10, 10, 10, 10)));
+        return p;
     }
-    private void addSectionTitle(JPanel p, String text, int row, GridBagConstraints gbc) {
-        gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 4;
-        JLabel lbl = new JLabel("<html><b>" + text + "</b></html>");
-        lbl.setForeground(new Color(52, 152, 219));
-        lbl.setBorder(new EmptyBorder(10, 0, 5, 0));
-        p.add(lbl, gbc);
+    private JTable createModernTable() {
+        JTable t = new JTable(); t.setFont(new Font("Segoe UI", Font.PLAIN, 14)); t.setRowHeight(35);
+        t.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                lbl.setBackground(COL_PRIMARY); lbl.setForeground(Color.WHITE);
+                lbl.setFont(new Font("Segoe UI", Font.BOLD, 13)); lbl.setHorizontalAlignment(JLabel.CENTER);
+                return lbl;
+            }
+        });
+        return t;
+    }
+    private JButton createBtn(String t, Color bg, String i) {
+        JButton b = new JButton(t); b.setBackground(bg); b.setForeground(Color.WHITE);
+        b.setFocusPainted(false); b.setPreferredSize(new Dimension(110, 35));
+        ImageIcon icon = loadResizedIcon(i, 18, 18); if(icon!=null) b.setIcon(icon);
+        return b;
+    }
+    private void addHeader(JPanel c, String t, String i) {
+        JPanel h = new JPanel(new FlowLayout(FlowLayout.LEFT)); h.setBackground(Color.WHITE);
+        JLabel l = new JLabel(t); l.setFont(new Font("Segoe UI", Font.BOLD, 16)); l.setForeground(new Color(50,50,50));
+        ImageIcon icon = loadResizedIcon(i, 24, 24); if(icon!=null) l.setIcon(icon);
+        h.add(l); c.add(h, BorderLayout.NORTH);
+    }
+    private JTextField createField() { JTextField t = new JTextField(); t.setBorder(BorderFactory.createCompoundBorder(new MatteBorder(0,0,1,0, COL_PRIMARY), new EmptyBorder(5,5,5,5))); return t; }
+    private JTextField createReadOnlyField() { JTextField t = createField(); t.setEditable(false); t.setBackground(new Color(250,250,250)); return t; }
+    private void addSection(JPanel p, String t, int r, GridBagConstraints g) { g.gridx=0; g.gridy=r; g.gridwidth=2; JLabel l=new JLabel(t); l.setForeground(COL_PRIMARY); l.setFont(new Font("Segoe UI", Font.BOLD, 14)); l.setBorder(new EmptyBorder(10,0,5,0)); p.add(l,g); }
+    private void addLabel(JPanel p, String t, int r, GridBagConstraints g) { g.gridx=0; g.gridy=r; g.gridwidth=1; g.weightx=0; p.add(new JLabel(t),g); }
+    private void addComp(JPanel p, Component c, int r, GridBagConstraints g) { g.gridx=1; g.gridy=r; g.weightx=1; p.add(c,g); }
+    private ImageIcon loadResizedIcon(String path, int w, int h) {
+        URL url = getClass().getResource("/icons/" + path); if (url == null) return null;
+        return new ImageIcon(new ImageIcon(url).getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH));
     }
 }
